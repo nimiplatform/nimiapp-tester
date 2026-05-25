@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { EmptyState, SegmentedControl, StatusBadge, Surface } from '@nimiplatform/kit/ui';
+import { EmptyState, FieldShell, SelectField, StatusBadge, Surface } from '@nimiplatform/kit/ui';
 import { ScrollText } from 'lucide-react';
 import { RunsHistoryList } from './runs-history-list.js';
 import { EvidenceProtocol } from './evidence-protocol.js';
@@ -47,13 +47,14 @@ export function SectionRuns({ history }: SectionRunsProps) {
 
       <div className="evidence-grid">
         <Surface className="runs-card" material="glass-thin" tone="card" elevation="base">
-          <SegmentedControl
-            items={filterItems}
-            value={filter}
-            onValueChange={(value) => setFilter(value as FilterValue)}
-            ariaLabel="Filter runs by capability"
-            size="sm"
-          />
+          <FieldShell label="Filter by lane">
+            <SelectField
+              value={filter}
+              onValueChange={(value) => setFilter(value as FilterValue)}
+              options={filterItems.map((item) => ({ value: item.value, label: item.label }))}
+              aria-label="Filter runs by capability"
+            />
+          </FieldShell>
           {total === 0 ? (
             <EmptyState
               icon={<ScrollText size={18} />}

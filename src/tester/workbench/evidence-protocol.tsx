@@ -10,17 +10,17 @@ export type EvidenceProtocolProps = {
 export function EvidenceProtocol({ source, producer, notes }: EvidenceProtocolProps) {
   return (
     <Surface className="evidence-protocol" material="glass-thin" tone="card" elevation="base">
-      <ul>
-        <li>
+      <ul className="evidence-protocol__pairs">
+        <li className="evidence-protocol__pair">
           <Database size={14} aria-hidden="true" />
-          <div>
+          <div className="evidence-protocol__pair-text">
             <strong>Source</strong>
             <span>{source}</span>
           </div>
         </li>
-        <li>
+        <li className="evidence-protocol__pair">
           <Workflow size={14} aria-hidden="true" />
-          <div>
+          <div className="evidence-protocol__pair-text">
             <strong>Producer</strong>
             <span>{producer}</span>
           </div>
