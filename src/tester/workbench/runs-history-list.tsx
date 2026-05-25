@@ -1,43 +1,13 @@
 import { EmptyState, ScrollArea, StatusBadge } from '@nimiplatform/kit/ui';
 import { Boxes } from 'lucide-react';
-import type { TesterRunHistory, TesterRunHistoryRecord } from '../tester-history.js';
-import { getTesterCapability, type TesterCapabilityId } from '../tester-capabilities.js';
-
-type FlatRecord = TesterRunHistoryRecord & { capabilityLabel: string };
-
-function flattenHistory(history: TesterRunHistory): FlatRecord[] {
-  const records: FlatRecord[] = [];
-  for (const [capabilityId, list] of Object.entries(history)) {
-    let label = capabilityId;
-    try {
-      label = getTesterCapability(capabilityId as TesterCapabilityId).label;
-    } catch {
-      label = capabilityId;
-    }
-    for (const record of list) {
-      records.push({ ...record, capabilityLabel: label });
-    }
-  }
-  records.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return records;
-}
-
-function statusTone(status: TesterRunHistoryRecord['status']): 'success' | 'warning' | 'danger' | 'info' {
-  if (status === 'ready') return 'success';
-  if (status === 'local-fixture') return 'info';
-  if (status === 'failed') return 'danger';
-  return 'warning';
-}
-
-function formatTimestamp(value: string): string {
-  try {
-    const date = new Date(value);
-    if (Number.isNaN(date.valueOf())) return value;
-    return date.toLocaleString([], { hour: '2-digit', minute: '2-digit', month: 'short', day: '2-digit' });
-  } catch {
-    return value;
-  }
-}
+import {
+  flattenTesterRunHistory,
+  formatTesterRunTimestamp,
+  getTesterRunStatusLabel,
+  getTesterRunStatusTone,
+  type TesterFlatRunRecord,
+  type TesterRunHistory,
+} from '../tester-history.js';
 
 type RunsHistoryListProps = {
   history: TesterRunHistory | null;
@@ -45,6 +15,9 @@ type RunsHistoryListProps = {
   emptyTitle?: string;
   emptyDescription?: string;
   className?: string;
+  selectedRecordId?: string | null;
+  onSelectRecord?: (record: TesterFlatRunRecord) => void;
+  showMessage?: boolean;
 };
 
 export function RunsHistoryList({
@@ -53,8 +26,11 @@ export function RunsHistoryList({
   emptyTitle = 'No runs captured yet',
   emptyDescription = 'Trigger a capability lane or resolve a typed blocker to populate this list.',
   className,
+  selectedRecordId,
+  onSelectRecord,
+  showMessage = false,
 }: RunsHistoryListProps) {
-  const flat = history ? flattenHistory(history) : [];
+  const flat = flattenTesterRunHistory(history);
   const visible = typeof limit === 'number' ? flat.slice(0, limit) : flat;
 
   if (!visible.length) {
@@ -70,20 +46,44 @@ export function RunsHistoryList({
   return (
     <ScrollArea className={className ? `runs-history ${className}` : 'runs-history'}>
       <ul className="runs-history__list">
-        {visible.map((record) => (
-          <li key={record.id} className="runs-history__row">
-            <div className="runs-history__row-main">
-              <span className="runs-history__capability">{record.capabilityLabel}</span>
-              <span className="runs-history__prompt" title={record.prompt}>{record.prompt}</span>
-            </div>
-            <div className="runs-history__row-meta">
-              <StatusBadge tone={statusTone(record.status)} shape="dot">
-                {record.status}
-              </StatusBadge>
-              <span className="runs-history__time">{formatTimestamp(record.createdAt)}</span>
-            </div>
-          </li>
-        ))}
+        {visible.map((record) => {
+          const rowClassName = [
+            'runs-history__row',
+            record.status === 'local-fixture' ? 'runs-history__row--local-fixture' : '',
+            selectedRecordId === record.id ? 'runs-history__row--selected' : '',
+          ].filter(Boolean).join(' ');
+          const rowContent = (
+            <>
+              <div className="runs-history__row-main">
+                <span className="runs-history__capability">{record.capabilityLabel}</span>
+                <span className="runs-history__prompt" title={record.prompt}>{record.prompt}</span>
+                {showMessage ? <span className="runs-history__message" title={record.message}>{record.message}</span> : null}
+              </div>
+              <div className="runs-history__row-meta">
+                <StatusBadge tone={getTesterRunStatusTone(record.status)} shape="dot">
+                  {getTesterRunStatusLabel(record.status)}
+                </StatusBadge>
+                <span className="runs-history__time">{formatTesterRunTimestamp(record.createdAt)}</span>
+              </div>
+            </>
+          );
+          return (
+            <li key={record.id}>
+              {onSelectRecord ? (
+                <button
+                  type="button"
+                  className={rowClassName}
+                  onClick={() => onSelectRecord(record)}
+                  aria-pressed={selectedRecordId === record.id ? true : undefined}
+                >
+                  {rowContent}
+                </button>
+              ) : (
+                <div className={rowClassName}>{rowContent}</div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </ScrollArea>
   );

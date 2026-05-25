@@ -88,6 +88,49 @@ test('tester UI Recipes stays scenario-first', () => {
   assert.match(gallery, /Recipe Composer \/ Preview/);
 });
 
+test('tester Runs page is a capability evidence ledger', () => {
+  const sectionRuns = read('src/tester/workbench/section-runs.tsx');
+  const historyList = read('src/tester/workbench/runs-history-list.tsx');
+
+  for (const requiredCopy of [
+    'Capability run evidence ledger',
+    'Review app-owned run records, runtime results, local fixtures, and boundary observations without claiming missing artifacts.',
+    'total records',
+    'runtime results',
+    'typed blockers/unavailable',
+    'local fixtures',
+    'Capability coverage',
+    'Selected record evidence detail',
+    'Record source',
+    'Runtime result',
+    'Artifact',
+    'Trace',
+    'Boundary',
+    'Retention: last 40 per capability',
+    'app-owned Tauri storage',
+    'Open App Lab',
+    'Open AI Capabilities',
+  ]) {
+    assert.match(sectionRuns, new RegExp(requiredCopy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+
+  assert.match(sectionRuns, /tester_run_history_load\/save/);
+  assert.match(sectionRuns, /World Tour viewer fixture; not a runtime artifact/);
+  assert.match(sectionRuns, /not captured; current run record has no trace metadata/);
+  assert.match(sectionRuns, /local-fixtures/);
+  assert.match(historyList, /getTesterRunStatusLabel/);
+  assert.doesNotMatch(sectionRuns, /Run lane/);
+  assert.doesNotMatch(sectionRuns, /AI Testing → Run lane/);
+});
+
+test('tester run history labels local fixtures distinctly from runtime results', () => {
+  const history = read('src/tester/tester-history.ts');
+  assert.match(history, /if \(status === 'ready'\) return 'runtime ready'/);
+  assert.match(history, /if \(status === 'unavailable'\) return 'sdk unavailable'/);
+  assert.match(history, /return 'local fixture'/);
+  assert.match(history, /status === 'local-fixture'\) return 'info'/);
+});
+
 test('tester app-owned Tauri commands are registered in standalone shell', () => {
   const main = read('src-tauri/src/main.rs');
   assert.match(main, /tester_run_history_load/);

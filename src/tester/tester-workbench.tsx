@@ -166,7 +166,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
             />
           ) : null}
           {section === 'ui-recipes' ? <KitComponentGallery onOpenSection={setSection} /> : null}
-          {section === 'runs' ? <SectionRuns history={history} /> : null}
+          {section === 'runs' ? <SectionRuns history={history} onOpenSection={setSection} /> : null}
           {section === 'artifacts' ? <SectionArtifacts /> : null}
           {section === 'runtime-trace' || section === 'boundary-checks' ? <SectionDiagnostics summary={summary} /> : null}
           {section === 'settings' ? <SectionSettings /> : null}
