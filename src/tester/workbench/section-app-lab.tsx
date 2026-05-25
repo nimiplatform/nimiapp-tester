@@ -60,6 +60,7 @@ type SectionAppLabProps = {
   lastResult: TesterCapabilityRunResult | null;
   historyError: string | null;
   onOpenKitComponents: () => void;
+  verboseConsole: boolean;
 };
 
 type ScenarioPreset = {
@@ -361,10 +362,12 @@ function ResultPanel({
   result,
   running,
   capability,
+  verboseConsole,
 }: {
   result: TesterCapabilityRunResult | null;
   running: boolean;
   capability: TesterCapability;
+  verboseConsole: boolean;
 }) {
   const isWorldTour = capability.id === 'world.generate';
   if (running) {
@@ -375,6 +378,7 @@ function ResultPanel({
           <span>{isWorldTour ? 'opening tauri-only viewer...' : 'running against Runtime...'}</span>
         </div>
         <p>{isWorldTour ? 'Waiting for the app-owned Tauri command to return.' : 'Waiting for the Runtime SDK call to return.'}</p>
+        {verboseConsole ? <p className="app-lab-result__diagnostic">Verbose console: {isWorldTour ? 'Tauri fixture launch pending.' : `${runtimeMethod(capability)} invocation pending.`}</p> : null}
       </div>
     );
   }
@@ -386,6 +390,7 @@ function ResultPanel({
           <span>{isWorldTour ? 'idle - waiting for viewer open.' : 'idle - waiting for your first runtime run.'}</span>
         </div>
         <p>{isWorldTour ? 'Open the fixture viewer to record a local run; this is not runtime artifact proof.' : 'Run a capability to see result, console output, and evidence.'}</p>
+        {verboseConsole ? <p className="app-lab-result__diagnostic">Verbose console: no local result has been recorded for {capability.id} in this session.</p> : null}
       </div>
     );
   }
@@ -398,6 +403,7 @@ function ResultPanel({
         </div>
         <p>{result.message}</p>
         <p>{result.actionHint}</p>
+        {verboseConsole ? <p className="app-lab-result__diagnostic">Verbose console: fail-closed reason {result.reason}; no success payload was fabricated.</p> : null}
       </div>
     );
   }
@@ -408,6 +414,11 @@ function ResultPanel({
         <span>{result.message}</span>
       </div>
       <pre>{formatTypedOutput(result)}</pre>
+      {verboseConsole ? (
+        <p className="app-lab-result__diagnostic">
+          Verbose console: capability {result.capabilityId}; trace metadata {result.trace ? 'available' : 'not returned'}.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -417,11 +428,13 @@ function CapabilityLab({
   runtime,
   lastResult,
   onResult,
+  verboseConsole,
 }: {
   capability: TesterCapability;
   runtime: TesterRuntimeInspection | null;
   lastResult: TesterCapabilityRunResult | null;
   onResult: (result: TesterCapabilityRunResult, prompt: string) => void | Promise<void>;
+  verboseConsole: boolean;
 }) {
   const presets = useMemo(() => presetsFor(capability), [capability]);
   const [scenarioId, setScenarioId] = useState(presets[0].id);
@@ -543,7 +556,7 @@ function CapabilityLab({
             <IconButton aria-label="Copy result" size="sm" tone="ghost" icon={<Copy size={14} />} />
           </div>
         </div>
-        <ResultPanel result={currentResult} running={running} capability={capability} />
+        <ResultPanel result={currentResult} running={running} capability={capability} verboseConsole={verboseConsole} />
       </section>
     </Surface>
   );
@@ -761,6 +774,7 @@ export function SectionAppLab({
   lastResult,
   historyError,
   onOpenKitComponents,
+  verboseConsole,
 }: SectionAppLabProps) {
   const runtime = summary?.runtime ?? null;
   return (
@@ -784,6 +798,7 @@ export function SectionAppLab({
             runtime={runtime}
             lastResult={lastResult}
             onResult={onResult}
+            verboseConsole={verboseConsole}
           />
           <RecipeCompanion onOpen={onOpenKitComponents} />
         </div>

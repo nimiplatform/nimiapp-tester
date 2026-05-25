@@ -6,6 +6,13 @@ import { appendTesterRunHistory, loadTesterRunHistory, type TesterRunHistory } f
 import { appendTesterImageHistoryRecord } from './tester-image-history.js';
 import { loadTesterAIConfigSummary, type TesterAIConfigSummary } from './tester-ai-config.js';
 import { inspectRuntimeReadiness, type TesterCapabilityRunResult } from './tester-runtime.js';
+import {
+  loadTesterPreferences,
+  resetTesterPreferences,
+  saveTesterPreferences,
+  type TesterPreferences,
+  type TesterPreferenceStoreStatus,
+} from './tester-preferences.js';
 import { testerTestIds } from './tester-test-ids.js';
 import { appId, scaffoldProfile } from '../shell/auth/runtime-platform.js';
 import { WorkbenchSideNav } from './workbench/workbench-side-nav.js';
@@ -43,6 +50,10 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<TesterCapabilityRunResult | null>(null);
   const [checking, setChecking] = useState(false);
+  const [preferenceState, setPreferenceState] = useState<{
+    preferences: TesterPreferences;
+    status: TesterPreferenceStoreStatus;
+  }>(() => loadTesterPreferences());
 
   const capability = useMemo(() => getTesterCapability(activeCapabilityId), [activeCapabilityId]);
 
@@ -78,6 +89,22 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
     void refreshSummary();
     void refreshHistory();
   }, [refreshSummary, refreshHistory]);
+
+  const handleCaptureEvidence = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    void window.print();
+  }, []);
+
+  const handlePreferenceChange = useCallback((patch: Partial<Omit<TesterPreferences, 'schemaVersion'>>) => {
+    setPreferenceState((current) => saveTesterPreferences({
+      ...current.preferences,
+      ...patch,
+    }));
+  }, []);
+
+  const handleResetPreferences = useCallback(() => {
+    setPreferenceState(resetTesterPreferences());
+  }, []);
 
   const handleCapabilityResult = useCallback(
     async (result: TesterCapabilityRunResult, prompt: string) => {
@@ -120,8 +147,11 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
       } catch (error) {
         setHistoryError(error instanceof Error ? error.message : String(error || 'History persistence failed.'));
       }
+      if (preferenceState.preferences.evidenceCaptureMode === 'after-run') {
+        handleCaptureEvidence();
+      }
     },
-    [],
+    [handleCaptureEvidence, preferenceState.preferences.evidenceCaptureMode],
   );
 
   const handleRunCheck = useCallback(async () => {
@@ -139,11 +169,6 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
       setChecking(false);
     }
   }, [refreshHistory]);
-
-  const handleCaptureEvidence = useCallback(() => {
-    if (typeof window === 'undefined') return;
-    void window.print();
-  }, []);
 
   const handleSelectCapability = useCallback((id: TesterCapabilityId) => {
     setActiveCapabilityId(id);
@@ -168,6 +193,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
           busy={checking}
           onRunCheck={handleRunCheck}
           onCaptureEvidence={handleCaptureEvidence}
+          evidenceCaptureMode={preferenceState.preferences.evidenceCaptureMode}
         />
         <div className="workbench__content">
           {section === 'app-lab' ? (
@@ -181,6 +207,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
               lastResult={lastResult}
               historyError={historyError}
               onOpenKitComponents={() => setSection('ui-recipes')}
+              verboseConsole={preferenceState.preferences.verboseConsole}
             />
           ) : null}
           {section === 'ai-capabilities' ? (
@@ -194,6 +221,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
               lastResult={lastResult}
               historyError={historyError}
               onOpenKitComponents={() => setSection('ui-recipes')}
+              verboseConsole={preferenceState.preferences.verboseConsole}
             />
           ) : null}
           {section === 'ui-recipes' ? <KitComponentGallery onOpenSection={setSection} /> : null}
@@ -208,7 +236,19 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
               lastResult={lastResult}
             />
           ) : null}
-          {section === 'settings' ? <SectionSettings /> : null}
+          {section === 'settings' ? (
+            <SectionSettings
+              appId={appId}
+              scaffoldProfile={scaffoldProfile}
+              summary={summary}
+              history={history}
+              historyError={historyError}
+              preferences={preferenceState.preferences}
+              storeStatus={preferenceState.status}
+              onPreferenceChange={handlePreferenceChange}
+              onResetPreferences={handleResetPreferences}
+            />
+          ) : null}
         </div>
       </div>
     </main>

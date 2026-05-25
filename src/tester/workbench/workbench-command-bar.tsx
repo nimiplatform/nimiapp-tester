@@ -1,6 +1,7 @@
 import { CircleDot, RefreshCw, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { Button, IconButton, StatusBadge } from '@nimiplatform/kit/ui';
 import type { TesterRuntimeInspection } from '../tester-runtime.js';
+import type { TesterEvidenceCaptureMode } from '../tester-preferences.js';
 
 type CommandBarProps = {
   appId: string;
@@ -9,6 +10,7 @@ type CommandBarProps = {
   busy: boolean;
   onRunCheck: () => void;
   onCaptureEvidence: () => void;
+  evidenceCaptureMode: TesterEvidenceCaptureMode;
 };
 
 function runtimeTone(runtime: TesterRuntimeInspection | null): 'success' | 'warning' | 'neutral' {
@@ -28,7 +30,9 @@ export function WorkbenchCommandBar({
   busy,
   onRunCheck,
   onCaptureEvidence,
+  evidenceCaptureMode,
 }: CommandBarProps) {
+  const captureLabel = evidenceCaptureMode === 'after-run' ? 'Capture: after run' : 'Capture: manual';
   return (
     <header className="workbench-command-bar" data-testid="nimi-tester-command-bar">
       <div className="workbench-command-bar__identity">
@@ -48,6 +52,9 @@ export function WorkbenchCommandBar({
           <ShieldCheck size={13} aria-hidden="true" />
           Strict boundary
         </StatusBadge>
+        <StatusBadge tone={evidenceCaptureMode === 'after-run' ? 'info' : 'neutral'} shape="outline">
+          {captureLabel}
+        </StatusBadge>
       </div>
       <div className="workbench-command-bar__actions">
         <Button
@@ -66,6 +73,7 @@ export function WorkbenchCommandBar({
           size="sm"
           leadingIcon={<Save size={14} />}
           onClick={onCaptureEvidence}
+          title={evidenceCaptureMode === 'after-run' ? 'Capture now; automatic capture also runs after capability completion.' : 'Manual acceptance capture.'}
         >
           Capture evidence
         </Button>

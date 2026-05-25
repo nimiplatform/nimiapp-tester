@@ -55,6 +55,7 @@ type SectionAITestingProps = {
   lastResult: TesterCapabilityRunResult | null;
   historyError: string | null;
   onOpenKitComponents: () => void;
+  verboseConsole: boolean;
 };
 
 type ScenarioPreset = {
@@ -389,10 +390,12 @@ function ResultPanel({
   result,
   running,
   capability,
+  verboseConsole,
 }: {
   result: TesterCapabilityRunResult | null;
   running: boolean;
   capability: TesterCapability;
+  verboseConsole: boolean;
 }) {
   if (running) {
     return (
@@ -402,6 +405,7 @@ function ResultPanel({
           <span>{capability.execution === 'standalone-tauri' ? 'opening viewer fixture' : 'calling Runtime SDK'}</span>
         </div>
         <p>{capability.execution === 'standalone-tauri' ? 'Waiting for the app-owned Tauri command.' : 'Waiting for the runtime-backed SDK call to return.'}</p>
+        {verboseConsole ? <p className="ai-result__diagnostic">Verbose console: {capability.execution === 'standalone-tauri' ? 'local viewer command pending.' : `${runtimeMethod(capability)} pending.`}</p> : null}
       </div>
     );
   }
@@ -413,6 +417,7 @@ function ResultPanel({
           <span>{capability.execution === 'standalone-tauri' ? 'viewer idle' : 'idle · no typed result yet'}</span>
         </div>
         <p>{capability.execution === 'standalone-tauri' ? 'Open the viewer to create a local run record. No runtime artifact is implied.' : 'Run with Runtime to collect a typed result or a fail-closed blocker.'}</p>
+        {verboseConsole ? <p className="ai-result__diagnostic">Verbose console: no current-session result for {capability.id}.</p> : null}
       </div>
     );
   }
@@ -425,6 +430,7 @@ function ResultPanel({
         </div>
         <p>{result.message}</p>
         <p>{result.actionHint}</p>
+        {verboseConsole ? <p className="ai-result__diagnostic">Verbose console: fail-closed reason {result.reason}; no runtime/provider setting was changed.</p> : null}
       </div>
     );
   }
@@ -436,6 +442,11 @@ function ResultPanel({
       </div>
       <p>{result.message}</p>
       <pre>{formatTypedOutput(result)}</pre>
+      {verboseConsole ? (
+        <p className="ai-result__diagnostic">
+          Verbose console: capability {result.capabilityId}; trace metadata {result.trace ? 'available' : 'not returned'}.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -445,11 +456,13 @@ function CapabilityDetail({
   runtime,
   lastResult,
   onResult,
+  verboseConsole,
 }: {
   capability: TesterCapability;
   runtime: TesterRuntimeInspection | null;
   lastResult: TesterCapabilityRunResult | null;
   onResult: (result: TesterCapabilityRunResult, prompt: string) => void | Promise<void>;
+  verboseConsole: boolean;
 }) {
   const presets = useMemo(() => presetsFor(capability), [capability]);
   const [scenarioId, setScenarioId] = useState(presets[0].id);
@@ -578,7 +591,7 @@ function CapabilityDetail({
             <Database size={15} aria-hidden="true" />
             <strong>Result</strong>
           </div>
-          <ResultPanel result={currentResult} running={running} capability={capability} />
+          <ResultPanel result={currentResult} running={running} capability={capability} verboseConsole={verboseConsole} />
         </section>
       </div>
     </Surface>
@@ -743,6 +756,7 @@ export function SectionAITesting({
   history,
   lastResult,
   historyError,
+  verboseConsole,
 }: SectionAITestingProps) {
   const runtime = summary?.runtime ?? null;
   const currentResult = lastResult?.capabilityId === capability.id ? lastResult : null;
@@ -772,6 +786,7 @@ export function SectionAITesting({
             runtime={runtime}
             lastResult={lastResult}
             onResult={onResult}
+            verboseConsole={verboseConsole}
           />
         </div>
         <BoundaryEvidencePanel
