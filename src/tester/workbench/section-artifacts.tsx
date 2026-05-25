@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { EmptyState, InlineAlert, StatusBadge, Surface } from '@nimiplatform/kit/ui';
-import { Boxes, RefreshCw } from 'lucide-react';
-import { Button } from '@nimiplatform/kit/ui';
+import { Button, EmptyState, InlineAlert, StatusBadge, Surface } from '@nimiplatform/kit/ui';
+import { PackageOpen, RefreshCw } from 'lucide-react';
+import { EvidenceProtocol } from './evidence-protocol.js';
 import { loadTesterImageHistory, type TesterImageHistoryRecord } from '../tester-image-history.js';
 
 type ArtifactsState =
@@ -39,57 +39,78 @@ export function SectionArtifacts() {
     };
   }, [reloadKey]);
 
+  const total = state.kind === 'ready' ? state.records.length : 0;
+
   return (
     <div className="section-artifacts">
-      <header className="section-header">
+      <header className="section-header section-header--compact">
         <div>
           <p className="eyebrow">Artifacts</p>
-          <h2>Captured media and world fixtures</h2>
-          <p>Sourced from the standalone Tauri storage command. No synthetic artifacts.</p>
+          <h2>Captured media & world fixtures</h2>
+          <p>Sourced from the app-owned tauri storage command. No synthetic artifacts — empty means no real run has produced one.</p>
         </div>
-        <Button
-          type="button"
-          tone="secondary"
-          size="sm"
-          leadingIcon={<RefreshCw size={14} />}
-          onClick={() => setReloadKey((value) => value + 1)}
-        >
-          Reload
-        </Button>
+        <div className="section-header__actions">
+          <StatusBadge tone={total === 0 ? 'neutral' : 'success'} shape="dot">{total} artifacts</StatusBadge>
+          <Button
+            type="button"
+            tone="secondary"
+            size="sm"
+            leadingIcon={<RefreshCw size={14} />}
+            onClick={() => setReloadKey((value) => value + 1)}
+          >
+            Reload
+          </Button>
+        </div>
       </header>
-      <Surface className="artifacts-card" material="glass-thin" tone="card" elevation="base">
-        {state.kind === 'loading' ? (
-          <p className="artifacts-card__status">Loading artifact projection…</p>
-        ) : null}
-        {state.kind === 'error' ? (
-          <InlineAlert tone="warning">
-            <div className="runtime-alert-copy">
-              <strong>Typed unavailable</strong>
-              <span>{state.message}</span>
-            </div>
-          </InlineAlert>
-        ) : null}
-        {state.kind === 'ready' && state.records.length === 0 ? (
-          <EmptyState
-            icon={<Boxes size={18} />}
-            title="No captured artifacts"
-            description="Run a capability lane that resolves to a real Runtime artifact, or capture evidence from a typed unavailable lane."
+
+      <div className="evidence-grid">
+        <Surface className="artifacts-card" material="glass-thin" tone="card" elevation="base">
+          {state.kind === 'loading' ? (
+            <p className="artifacts-card__status">Loading artifact projection…</p>
+          ) : null}
+          {state.kind === 'error' ? (
+            <InlineAlert tone="warning">
+              <div className="runtime-alert-copy">
+                <strong>Typed unavailable</strong>
+                <span>{state.message}</span>
+                <span>tester_image_history_load is the only admitted reader — fix the tauri command before retrying.</span>
+              </div>
+            </InlineAlert>
+          ) : null}
+          {state.kind === 'ready' && state.records.length === 0 ? (
+            <EmptyState
+              icon={<PackageOpen size={18} />}
+              title="No captured artifacts"
+              description="An Image Generate, Video Generate, or Speech Bundle lane that reaches an admitted SDK surface will append a record here via tester_image_history_save."
+            />
+          ) : null}
+          {state.kind === 'ready' && state.records.length > 0 ? (
+            <ul className="artifacts-list">
+              {state.records.map((record) => (
+                <li key={record.id} className="artifacts-row">
+                  <div>
+                    <strong>{record.title}</strong>
+                    <span>{record.capabilityId} · {record.createdAt}</span>
+                  </div>
+                  <StatusBadge tone={statusTone(record.status)} shape="dot">{record.status}</StatusBadge>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </Surface>
+        <aside className="evidence-aside" aria-label="Artifacts evidence protocol">
+          <p className="eyebrow">Evidence protocol</p>
+          <EvidenceProtocol
+            source="$TMPDIR/nimiapp-tester/tester-image-history.json"
+            producer="Image / Video / Speech lanes → tester_image_history_save (app-owned tauri command)"
+            notes={[
+              'Only real Runtime/SDK results are persisted — never placeholder media.',
+              'Up to 80 records are retained; older entries fall off automatically.',
+              'World-tour fixtures live alongside under world-tour/ inside the same tester temp root.',
+            ]}
           />
-        ) : null}
-        {state.kind === 'ready' && state.records.length > 0 ? (
-          <ul className="artifacts-list">
-            {state.records.map((record) => (
-              <li key={record.id} className="artifacts-row">
-                <div>
-                  <strong>{record.title}</strong>
-                  <span>{record.capabilityId} · {record.createdAt}</span>
-                </div>
-                <StatusBadge tone={statusTone(record.status)} shape="dot">{record.status}</StatusBadge>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </Surface>
+        </aside>
+      </div>
     </div>
   );
 }
