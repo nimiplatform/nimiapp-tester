@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import './tester-workbench.css';
 import { getTesterCapability, type TesterCapabilityId } from './tester-capabilities.js';
 import { appendTesterRunHistory, loadTesterRunHistory, type TesterRunHistory } from './tester-history.js';
+import { appendTesterImageHistoryRecord } from './tester-image-history.js';
 import { loadTesterAIConfigSummary, type TesterAIConfigSummary } from './tester-ai-config.js';
 import { inspectRuntimeReadiness, type TesterCapabilityRunResult } from './tester-runtime.js';
 import { testerTestIds } from './tester-test-ids.js';
@@ -26,6 +27,11 @@ type TesterWorkbenchProps = {
 
 function makeRecordId() {
   return `run-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+function hasTraceMetadata(result: TesterCapabilityRunResult): boolean {
+  if (!result.ok || !result.trace) return false;
+  return Boolean(result.trace.traceId || result.trace.modelResolved || result.trace.routeDecision);
 }
 
 export function TesterWorkbench(_props: TesterWorkbenchProps) {
@@ -75,17 +81,46 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
   const handleCapabilityResult = useCallback(
     async (result: TesterCapabilityRunResult, prompt: string) => {
       setLastResult(result);
+      const runId = makeRecordId();
+      const createdAt = new Date().toISOString();
       try {
         const next = await appendTesterRunHistory({
-          id: makeRecordId(),
+          id: runId,
           capabilityId: result.capabilityId,
           prompt,
           status: result.capabilityId === 'world.generate' && result.ok ? 'local-fixture' : result.ok ? 'ready' : 'unavailable',
           message: result.message,
-          createdAt: new Date().toISOString(),
+          createdAt,
         });
         setHistory(next);
         setHistoryError(null);
+        if (
+          result.ok
+          && result.output.kind === 'artifacts'
+          && result.output.artifactCount > 0
+          && result.capabilityId !== 'world.generate'
+        ) {
+          const firstArtifact = result.output.firstArtifact;
+          await appendTesterImageHistoryRecord({
+            id: runId,
+            runId,
+            kind: 'runtime-media',
+            capabilityId: result.capabilityId,
+            capabilityLabel: result.capabilityLabel,
+            title: firstArtifact?.displayName || firstArtifact?.artifactId || result.output.jobId || result.capabilityLabel,
+            status: 'ready',
+            createdAt,
+            artifactCount: result.output.artifactCount,
+            artifactLabel: firstArtifact?.displayName || firstArtifact?.artifactId,
+            mimeType: firstArtifact?.mimeType,
+            url: firstArtifact?.url,
+            jobId: result.output.jobId,
+            jobState: result.output.jobState,
+            message: result.message,
+            traceState: hasTraceMetadata(result) ? 'captured' : 'not-captured',
+            traceId: result.trace?.traceId,
+          });
+        }
       } catch (error) {
         setHistoryError(error instanceof Error ? error.message : String(error || 'History persistence failed.'));
       }
@@ -167,7 +202,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
           ) : null}
           {section === 'ui-recipes' ? <KitComponentGallery onOpenSection={setSection} /> : null}
           {section === 'runs' ? <SectionRuns history={history} onOpenSection={setSection} /> : null}
-          {section === 'artifacts' ? <SectionArtifacts /> : null}
+          {section === 'artifacts' ? <SectionArtifacts onOpenSection={setSection} /> : null}
           {section === 'runtime-trace' || section === 'boundary-checks' ? <SectionDiagnostics summary={summary} /> : null}
           {section === 'settings' ? <SectionSettings /> : null}
         </div>

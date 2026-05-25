@@ -123,6 +123,44 @@ test('tester Runs page is a capability evidence ledger', () => {
   assert.doesNotMatch(sectionRuns, /AI Testing → Run lane/);
 });
 
+test('tester Artifacts page is a real artifact inventory', () => {
+  const sectionArtifacts = read('src/tester/workbench/section-artifacts.tsx');
+  const imageHistory = read('src/tester/tester-image-history.ts');
+  const workbench = read('src/tester/tester-workbench.tsx');
+
+  for (const requiredCopy of [
+    'Artifact inventory',
+    'Inspect real runtime media outputs and local fixture references without creating placeholder artifacts.',
+    'total artifacts',
+    'runtime media',
+    'local fixtures',
+    'trace not captured',
+    'Artifact source',
+    'Linked run',
+    'tester_image_history_load/save',
+    '$TMPDIR/nimiapp-tester/tester-image-history.json',
+    'strict boundary active / no REST bypass',
+    'Only real Runtime/SDK artifact records persisted',
+    'World Tour local fixture is not runtime artifact',
+    'World Tour local fixture lives outside runtime artifact inventory',
+    'No placeholder media is created here',
+    'Open Runs',
+  ]) {
+    assert.match(sectionArtifacts, new RegExp(requiredCopy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+
+  assert.match(imageHistory, /runId\?: string/);
+  assert.match(imageHistory, /kind: 'runtime-media'/);
+  assert.match(imageHistory, /artifactCount\?: number/);
+  assert.match(imageHistory, /traceState\?: 'captured' \| 'not-captured'/);
+  assert.match(imageHistory, /records\.slice\(0, 80\)/);
+  assert.match(workbench, /result\.output\.kind === 'artifacts'/);
+  assert.match(workbench, /result\.output\.artifactCount > 0/);
+  assert.match(workbench, /result\.capabilityId !== 'world\.generate'/);
+  assert.match(workbench, /appendTesterImageHistoryRecord/);
+  assert.doesNotMatch(sectionArtifacts, /fake thumbnail/i);
+});
+
 test('tester run history labels local fixtures distinctly from runtime results', () => {
   const history = read('src/tester/tester-history.ts');
   assert.match(history, /if \(status === 'ready'\) return 'runtime ready'/);
