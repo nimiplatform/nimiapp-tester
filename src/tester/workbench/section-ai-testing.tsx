@@ -747,7 +747,7 @@ function DiagnosticsStrip({
     {
       label: 'Provider catalog',
       value: summary ? 'loaded' : 'checking',
-      detail: summary?.providerCatalogSurface || 'runtimeAdmin.listProviderCatalog',
+      detail: summary?.providerCatalogSurface || 'runtimeAdmin.listConnectors/listConnectorModels',
       tone: summary ? 'success' : 'neutral',
     },
     {

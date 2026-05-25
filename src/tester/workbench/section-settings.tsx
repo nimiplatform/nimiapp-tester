@@ -201,7 +201,7 @@ export function SectionSettings({
             </div>
             <div>
               <dt>Provider catalog surface</dt>
-              <dd>{summary?.providerCatalogSurface || 'runtimeAdmin.listProviderCatalog'}</dd>
+              <dd>{summary?.providerCatalogSurface || 'runtimeAdmin.listConnectors/listConnectorModels'}</dd>
             </div>
             <div>
               <dt>Scheduling owner</dt>

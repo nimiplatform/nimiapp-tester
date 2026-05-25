@@ -263,7 +263,7 @@ function buildRows(input: {
       title: 'Provider catalog surface',
       status: input.summary?.providerCatalogSurface ? 'available' : 'checking',
       tone: input.summary?.providerCatalogSurface ? 'info' : 'neutral',
-      source: input.summary?.providerCatalogSurface || 'runtimeAdmin.listProviderCatalog',
+      source: input.summary?.providerCatalogSurface || 'runtimeAdmin.listConnectors/listConnectorModels',
       detail: 'Provider catalog remains runtime-owned; app-local defaults forbidden.',
       evidenceKind: 'observation',
     },
@@ -420,7 +420,7 @@ export function SectionDiagnostics({
             </div>
             <div>
               <dt>provider catalog</dt>
-              <dd>{summary?.providerCatalogSurface || 'runtimeAdmin.listProviderCatalog'}</dd>
+              <dd>{summary?.providerCatalogSurface || 'runtimeAdmin.listConnectors/listConnectorModels'}</dd>
             </div>
             <div>
               <dt>app-local defaults</dt>

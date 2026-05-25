@@ -916,6 +916,53 @@ body:has(.workbench) {
   align-items: stretch;
 }
 
+.app-lab-ai-config {
+  min-width: 0;
+  padding: 12px;
+  border-radius: 8px;
+}
+
+.app-lab-ai-config__footer {
+  display: grid;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--nimi-tester-border-soft);
+}
+
+.app-lab-ai-config__scope {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.app-lab-ai-config__scope code {
+  min-width: 0;
+  color: var(--nimi-text-secondary);
+  font-family: 'JetBrains Mono', 'SF Mono', ui-monospace, monospace;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.app-lab-ai-config__import {
+  display: grid;
+  gap: 8px;
+}
+
+.app-lab-ai-config__import textarea {
+  width: 100%;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+
+.app-lab-ai-config__import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
 .app-lab-panel-head {
   display: flex;
   align-items: center;

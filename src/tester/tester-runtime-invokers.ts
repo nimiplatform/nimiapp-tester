@@ -5,9 +5,12 @@
 // developer sees verbatim what Runtime returned.
 
 import type { PlatformClient } from '@nimiplatform/sdk';
+import type { AIConfig, RuntimeRouteBinding } from '@nimiplatform/sdk/ai';
+import { createAIConfigEvidence } from '@nimiplatform/sdk/ai';
 import type { TesterCapabilityId } from './tester-capabilities.js';
 import { capabilityUnavailable, type TesterUnavailable } from './tester-unavailable.js';
 import { getTesterCapability } from './tester-capabilities.js';
+import { loadTesterAIConfig } from './tester-ai-config-store.js';
 
 export type TesterScenarioInput = {
   prompt: string;
@@ -75,13 +78,30 @@ export type TesterTypedSuccess = {
 export type TesterInvocationResult = TesterTypedSuccess | TesterUnavailable;
 
 const TESTER_APP_ID = 'nimi.tester';
+const TEXT_GENERATION_BINDING_CAPABILITY = 'text.generate';
+const EMBEDDING_BINDING_CAPABILITY = 'text.embed';
 
-function buildMetadata(surfaceId: string): Record<string, string> {
-  return {
+type ResolvedLLMBinding = {
+  bindingCapabilityId: typeof TEXT_GENERATION_BINDING_CAPABILITY | typeof EMBEDDING_BINDING_CAPABILITY;
+  binding: RuntimeRouteBinding;
+  model: string;
+  metadata: Record<string, string>;
+};
+
+function isTesterUnavailable(value: ResolvedLLMBinding | TesterUnavailable): value is TesterUnavailable {
+  return 'ok' in value && value.ok === false;
+}
+
+function buildMetadata(surfaceId: string, extra?: Record<string, string | undefined>): Record<string, string> {
+  const metadata: Record<string, string> = {
     callerKind: 'third-party-app',
     callerId: TESTER_APP_ID,
     surfaceId,
   };
+  for (const [key, value] of Object.entries(extra || {})) {
+    if (value) metadata[key] = value;
+  }
+  return metadata;
 }
 
 function describeSdkError(error: unknown): string {
@@ -104,6 +124,83 @@ function unavailableFromValidation(capabilityId: TesterCapabilityId, message: st
   return capabilityUnavailable(capability, 'sdk-surface-missing', message);
 }
 
+function unavailableFromAIConfig(capabilityId: TesterCapabilityId, message: string): TesterUnavailable {
+  const capability = getTesterCapability(capabilityId);
+  return capabilityUnavailable(capability, 'ai-config-binding-missing', message);
+}
+
+function bindingCapabilityFor(capabilityId: TesterCapabilityId): ResolvedLLMBinding['bindingCapabilityId'] | null {
+  if (capabilityId === 'text.generate' || capabilityId === 'chat.stream') {
+    return TEXT_GENERATION_BINDING_CAPABILITY;
+  }
+  if (capabilityId === 'text.embed') {
+    return EMBEDDING_BINDING_CAPABILITY;
+  }
+  return null;
+}
+
+function bindingModel(binding: RuntimeRouteBinding): string {
+  return String(binding.model || binding.modelId || binding.localModelId || '').trim();
+}
+
+export function resolveTesterLLMBinding(
+  capabilityId: TesterCapabilityId,
+  config: AIConfig = loadTesterAIConfig(),
+): ResolvedLLMBinding | TesterUnavailable {
+  const bindingCapabilityId = bindingCapabilityFor(capabilityId);
+  if (!bindingCapabilityId) {
+    return unavailableFromAIConfig(capabilityId, `Capability ${capabilityId} does not have an AIConfig LLM binding path.`);
+  }
+  const binding = config.capabilities.selectedBindings[bindingCapabilityId] || null;
+  if (!binding) {
+    return unavailableFromAIConfig(
+      capabilityId,
+      `AIConfig binding is required for ${bindingCapabilityId}; Runtime invocation failed closed before request dispatch.`,
+    );
+  }
+  const model = bindingModel(binding);
+  if (!model) {
+    return unavailableFromAIConfig(
+      capabilityId,
+      `AIConfig binding for ${bindingCapabilityId} does not include a runtime model id.`,
+    );
+  }
+  const evidence = createAIConfigEvidence(config);
+  const scopeRef = config.scopeRef;
+  return {
+    bindingCapabilityId,
+    binding,
+    model,
+    metadata: {
+      aiConfigScopeKind: scopeRef.kind,
+      aiConfigScopeOwnerId: scopeRef.ownerId,
+      aiConfigScopeSurfaceId: scopeRef.surfaceId || '',
+      aiConfigProfileId: config.profileOrigin?.profileId || '',
+      aiConfigProfileTitle: config.profileOrigin?.title || '',
+      aiConfigCapabilityId: capabilityId,
+      aiConfigBindingCapabilityId: bindingCapabilityId,
+      aiConfigBindingSource: binding.source,
+      aiConfigBindingConnectorId: binding.connectorId || '',
+      aiConfigBindingModel: model,
+      aiConfigHash: evidence.configHash,
+      aiConfigBindingKeys: evidence.capabilityBindingKeys.join(','),
+    },
+  };
+}
+
+function routeInput(binding: RuntimeRouteBinding, model: string): {
+  model: string;
+  connectorId?: string;
+  route: 'local' | 'cloud';
+} {
+  const connectorId = String(binding.connectorId || '').trim();
+  return {
+    model,
+    connectorId: connectorId || undefined,
+    route: binding.source === 'cloud' ? 'cloud' : 'local',
+  };
+}
+
 function pickTrace(value: unknown): TesterTrace | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const record = value as Record<string, unknown>;
@@ -119,11 +216,14 @@ async function invokeTextGenerate(client: PlatformClient, input: TesterScenarioI
   if (!prompt) {
     return unavailableFromValidation('text.generate', 'Scenario prompt is empty — supply a request body before running text.generate.');
   }
+  const resolved = resolveTesterLLMBinding('text.generate');
+  if (isTesterUnavailable(resolved)) return resolved;
+  const route = routeInput(resolved.binding, resolved.model);
   try {
     const output = await client.runtime.ai.text.generate({
-      model: 'auto',
+      ...route,
       input: prompt,
-      metadata: buildMetadata('nimi.tester.ai.text.generate'),
+      metadata: buildMetadata('nimi.tester.ai.text.generate', resolved.metadata),
     });
     return {
       ok: true,
@@ -151,11 +251,14 @@ async function invokeChatStream(client: PlatformClient, input: TesterScenarioInp
   if (!prompt) {
     return unavailableFromValidation('chat.stream', 'Scenario prompt is empty — supply a chat turn before running chat.stream.');
   }
+  const resolved = resolveTesterLLMBinding('chat.stream');
+  if (isTesterUnavailable(resolved)) return resolved;
+  const route = routeInput(resolved.binding, resolved.model);
   try {
     const opened = await client.runtime.ai.text.stream({
-      model: 'auto',
+      ...route,
       input: [{ role: 'user', content: prompt }],
-      metadata: buildMetadata('nimi.tester.ai.chat.stream'),
+      metadata: buildMetadata('nimi.tester.ai.chat.stream', resolved.metadata),
     });
     let aggregated = '';
     let finishReason = 'stop';
@@ -200,11 +303,14 @@ async function invokeEmbedding(client: PlatformClient, input: TesterScenarioInpu
   if (!prompt) {
     return unavailableFromValidation('text.embed', 'Scenario prompt is empty — supply at least one input string for embedding.');
   }
+  const resolved = resolveTesterLLMBinding('text.embed');
+  if (isTesterUnavailable(resolved)) return resolved;
+  const route = routeInput(resolved.binding, resolved.model);
   try {
     const output = await client.runtime.ai.embedding.generate({
-      model: 'auto',
+      ...route,
       input: prompt,
-      metadata: buildMetadata('nimi.tester.ai.embedding.generate'),
+      metadata: buildMetadata('nimi.tester.ai.embedding.generate', resolved.metadata),
     });
     const first = output.vectors[0] || [];
     return {

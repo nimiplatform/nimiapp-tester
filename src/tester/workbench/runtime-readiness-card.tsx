@@ -44,7 +44,7 @@ export function RuntimeReadinessCard({ summary }: RuntimeReadinessCardProps) {
         <li>
           <Cable size={13} aria-hidden="true" />
           <span className="runtime-readiness-card__fact-label">Provider catalog</span>
-          <span>{summary?.providerCatalogSurface || 'runtimeAdmin.listProviderCatalog'}</span>
+          <span>{summary?.providerCatalogSurface || 'runtimeAdmin.listConnectors/listConnectorModels'}</span>
         </li>
         <li>
           <ShieldCheck size={13} aria-hidden="true" />

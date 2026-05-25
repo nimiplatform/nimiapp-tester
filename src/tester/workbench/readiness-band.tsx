@@ -48,7 +48,7 @@ export function ReadinessBand({ summary, evidenceCapture = 'disabled' }: Readine
     {
       id: 'provider-catalog',
       label: 'Provider catalog',
-      primary: summary?.providerCatalogSurface || 'runtimeAdmin.listProviderCatalog',
+      primary: summary?.providerCatalogSurface || 'runtimeAdmin.listConnectors/listConnectorModels',
       detail: summary?.schedulingOwner === 'runtime'
         ? 'scheduling owned by runtime'
         : 'scheduling owner pending',

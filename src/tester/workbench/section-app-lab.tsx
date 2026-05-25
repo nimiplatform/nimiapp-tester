@@ -54,6 +54,7 @@ import {
   saveTesterPromptDraft,
   type TesterPromptDraftStoreStatus,
 } from '../tester-preferences.js';
+import { AppLabAIConfigPanel } from './app-lab-ai-config-panel.js';
 
 type SectionAppLabProps = {
   activeId: TesterCapabilityId;
@@ -671,7 +672,7 @@ function ReadinessInspector({
       title: 'Provider catalog',
       tone: summary ? 'success' : 'neutral',
       status: summary ? 'Loaded' : 'Checking',
-      details: [summary?.providerCatalogSurface || 'runtimeAdmin.listProviderCatalog', 'Scheduling owner: runtime'],
+      details: [summary?.providerCatalogSurface || 'runtimeAdmin.listConnectors/listConnectorModels', 'Scheduling owner: runtime'],
     },
     {
       title: 'SDK gaps',
@@ -824,6 +825,7 @@ export function SectionAppLab({
             <p>Build, run, and capture evidence for a runtime-backed Nimi App.</p>
           </div>
         </header>
+        <AppLabAIConfigPanel runtime={runtime} />
         <div className="app-lab-workspace">
           <CapabilityRail
             activeId={activeId}

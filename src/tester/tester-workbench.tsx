@@ -79,7 +79,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
           detail: error instanceof Error ? error.message : String(error || 'Runtime inspection failed.'),
         },
         schedulingOwner: 'runtime',
-        providerCatalogSurface: 'runtimeAdmin.listProviderCatalog',
+        providerCatalogSurface: 'runtimeAdmin.listConnectors/listConnectorModels',
         appLocalProviderDefaults: false,
       });
     }
@@ -161,7 +161,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
       setSummary({
         runtime: inspection,
         schedulingOwner: 'runtime',
-        providerCatalogSurface: 'runtimeAdmin.listProviderCatalog',
+        providerCatalogSurface: 'runtimeAdmin.listConnectors/listConnectorModels',
         appLocalProviderDefaults: false,
       });
       await refreshHistory();

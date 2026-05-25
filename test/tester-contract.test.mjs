@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import test from 'node:test';
+import { pathToFileURL } from 'node:url';
 
 const root = path.resolve(import.meta.dirname, '..');
 
@@ -16,6 +18,53 @@ function listSourceFiles(dir) {
     return /\.(ts|tsx)$/.test(entry.name) ? [next] : [];
   });
 }
+
+let behaviorBuildDir = null;
+
+function buildBehaviorModules() {
+  if (behaviorBuildDir) return behaviorBuildDir;
+  mkdirSync(path.join(root, '.tmp'), { recursive: true });
+  behaviorBuildDir = mkdtempSync(path.join(root, '.tmp', 'behavior-'));
+  execFileSync('pnpm', [
+    'exec',
+    'tsc',
+    '--outDir',
+    behaviorBuildDir,
+    '--rootDir',
+    'src',
+    '--module',
+    'NodeNext',
+    '--moduleResolution',
+    'NodeNext',
+    '--target',
+    'ES2022',
+    '--jsx',
+    'react-jsx',
+    '--skipLibCheck',
+    'true',
+    '--types',
+    'node',
+    '--noEmit',
+    'false',
+    'src/tester/tester-runtime-invokers.ts',
+    'src/tester/tester-ai-config-store.ts',
+  ], {
+    cwd: root,
+    stdio: 'pipe',
+  });
+  return behaviorBuildDir;
+}
+
+async function importBehaviorModule(relativePath) {
+  const buildDir = buildBehaviorModules();
+  return import(pathToFileURL(path.join(buildDir, relativePath)).href);
+}
+
+test.after(() => {
+  if (behaviorBuildDir) {
+    rmSync(behaviorBuildDir, { recursive: true, force: true });
+  }
+});
 
 test('tester workbench is app-owned and rejects Desktop private imports', () => {
   const sources = listSourceFiles(path.join(root, 'src')).map((filePath) => readFileSync(filePath, 'utf8')).join('\n');
@@ -199,6 +248,230 @@ test('tester run history labels local fixtures distinctly from runtime results',
   assert.match(history, /if \(status === 'unavailable'\) return 'sdk unavailable'/);
   assert.match(history, /return 'local fixture'/);
   assert.match(history, /status === 'local-fixture'\) return 'info'/);
+});
+
+test('tester App Lab imports and applies real SDK AIProfiles through Kit AIConfig', () => {
+  const store = read('src/tester/tester-ai-config-store.ts');
+  const panel = read('src/tester/workbench/app-lab-ai-config-panel.tsx');
+
+  for (const required of [
+    'AIProfile',
+    'AIConfig',
+    'createAppAIScopeRef',
+    'createEmptyAIConfig',
+    'validateAIProfile',
+    'applyAIProfileToConfig',
+    'computeAIConfigDiff',
+    'computeAIConfigVersion',
+    'importTesterAIProfileJson',
+    'TESTER_AI_PROFILE_LIBRARY_STORAGE_KEY',
+    'previewApply',
+    'apply(scopeRef',
+    'saveTesterAIConfig',
+  ]) {
+    assert.match(store, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+
+  for (const required of [
+    'ModelConfigAiModelHub',
+    'useModelConfigProfileController',
+    'defaultModelConfigProfileCopy',
+    'Import AIProfile JSON',
+    'createTesterRuntimeModelPickerProvider',
+    "runtime.status !== 'ready'",
+  ]) {
+    assert.match(panel, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+});
+
+test('tester LLM invokers consume AIConfig bindings and fail closed without binding', () => {
+  const invokers = read('src/tester/tester-runtime-invokers.ts');
+  const unavailable = read('src/tester/tester-unavailable.ts');
+  const llmInvokers = invokers.slice(
+    invokers.indexOf('async function invokeTextGenerate'),
+    invokers.indexOf('function summariseArtifact'),
+  );
+
+  assert.doesNotMatch(llmInvokers, /model:\s*['"]auto['"]/);
+  assert.match(unavailable, /ai-config-binding-missing/);
+  assert.match(invokers, /resolveTesterLLMBinding/);
+  assert.match(invokers, /text\.generate' \|\| capabilityId === 'chat\.stream'/);
+  assert.match(invokers, /capabilityId === 'text\.embed'/);
+  assert.match(invokers, /Runtime invocation failed closed before request dispatch/);
+  assert.match(invokers, /routeInput/);
+  assert.match(invokers, /connectorId: connectorId \|\| undefined/);
+  assert.match(invokers, /route: binding\.source === 'cloud' \? 'cloud' : 'local'/);
+  assert.match(invokers, /aiConfigScopeKind/);
+  assert.match(invokers, /aiConfigProfileId/);
+  assert.match(invokers, /aiConfigBindingCapabilityId/);
+  assert.match(invokers, /aiConfigBindingModel/);
+  assert.match(invokers, /aiConfigHash/);
+});
+
+test('tester LLM binding resolver fails closed for missing and malformed bindings', async () => {
+  const invokers = await importBehaviorModule('tester/tester-runtime-invokers.js');
+  const store = await importBehaviorModule('tester/tester-ai-config-store.js');
+  const scopeRef = store.createTesterAppLabAIScopeRef();
+
+  const missing = invokers.resolveTesterLLMBinding('text.generate', {
+    scopeRef,
+    capabilities: { selectedBindings: {}, localProfileRefs: {}, selectedParams: {} },
+    profileOrigin: null,
+  });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.reason, 'ai-config-binding-missing');
+
+  const malformedProfile = store.importTesterAIProfileJson(JSON.stringify({
+    profileId: 'malformed',
+    title: 'Malformed',
+    description: '',
+    tags: [],
+    capabilities: {
+      'text.generate': {
+        binding: {
+          source: 'remote',
+          connectorId: 42,
+          model: '',
+        },
+      },
+    },
+  }));
+  assert.equal(malformedProfile.ok, false);
+  assert.match(malformedProfile.message, /binding validation failed/i);
+
+  assert.throws(() => store.saveTesterAIConfig({
+    scopeRef,
+    capabilities: {
+      selectedBindings: {
+        'text.generate': {
+          source: 'remote',
+          connectorId: '',
+          model: 'bad',
+        },
+      },
+      localProfileRefs: {},
+      selectedParams: {},
+    },
+    profileOrigin: null,
+  }), /AIConfig binding validation failed/);
+});
+
+test('tester LLM invoker dispatches configured AIConfig route payload', async () => {
+  const invokers = await importBehaviorModule('tester/tester-runtime-invokers.js');
+  const store = await importBehaviorModule('tester/tester-ai-config-store.js');
+  const scopeRef = store.createTesterAppLabAIScopeRef();
+  store.saveTesterAIConfig({
+    scopeRef,
+    capabilities: {
+      selectedBindings: {
+        'text.generate': {
+          source: 'cloud',
+          connectorId: 'runtime-connector',
+          model: 'runtime-model',
+          modelLabel: 'Runtime Model',
+        },
+        'text.embed': {
+          source: 'local',
+          connectorId: '',
+          model: 'embedding-model',
+        },
+      },
+      localProfileRefs: {},
+      selectedParams: {},
+    },
+    profileOrigin: {
+      profileId: 'behavior-profile',
+      title: 'Behavior Profile',
+      appliedAt: '2026-05-26T00:00:00.000Z',
+    },
+  });
+
+  const captured = [];
+  const client = {
+    runtime: {
+      ai: {
+        text: {
+          async generate(input) {
+            captured.push({ surface: 'generate', input });
+            return {
+              text: 'ok',
+              finishReason: 'stop',
+              usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+              trace: { traceId: 'trace-1', modelResolved: input.model, routeDecision: input.route },
+            };
+          },
+          async stream(input) {
+            captured.push({ surface: 'stream', input });
+            return {
+              stream: (async function* stream() {
+                yield { type: 'delta', text: 'o' };
+                yield {
+                  type: 'finish',
+                  finishReason: 'stop',
+                  usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+                  trace: { traceId: 'trace-2', modelResolved: input.model, routeDecision: input.route },
+                };
+              })(),
+            };
+          },
+        },
+        embedding: {
+          async generate(input) {
+            captured.push({ surface: 'embed', input });
+            return {
+              vectors: [[0.1, 0.2]],
+              usage: { totalTokens: 1 },
+              trace: { traceId: 'trace-3', modelResolved: input.model, routeDecision: input.route },
+            };
+          },
+        },
+      },
+    },
+  };
+
+  const textResult = await invokers.invokeTesterCapability(client, 'text.generate', {
+    prompt: 'Hello runtime',
+    scenarioId: 'behavior',
+  });
+  assert.equal(textResult.ok, true);
+
+  const streamResult = await invokers.invokeTesterCapability(client, 'chat.stream', {
+    prompt: 'Hello stream',
+    scenarioId: 'behavior',
+  });
+  assert.equal(streamResult.ok, true);
+
+  const embedResult = await invokers.invokeTesterCapability(client, 'text.embed', {
+    prompt: 'Hello embed',
+    scenarioId: 'behavior',
+  });
+  assert.equal(embedResult.ok, true);
+
+  assert.deepEqual(captured.map((entry) => entry.surface), ['generate', 'stream', 'embed']);
+  assert.equal(captured[0].input.model, 'runtime-model');
+  assert.equal(captured[0].input.connectorId, 'runtime-connector');
+  assert.equal(captured[0].input.route, 'cloud');
+  assert.equal(captured[0].input.metadata.aiConfigProfileId, 'behavior-profile');
+  assert.equal(captured[0].input.metadata.aiConfigBindingCapabilityId, 'text.generate');
+  assert.equal(captured[1].input.model, 'runtime-model');
+  assert.equal(captured[1].input.connectorId, 'runtime-connector');
+  assert.equal(captured[1].input.route, 'cloud');
+  assert.equal(captured[2].input.model, 'embedding-model');
+  assert.equal(captured[2].input.connectorId, undefined);
+  assert.equal(captured[2].input.route, 'local');
+  assert.equal(captured[2].input.metadata.aiConfigBindingCapabilityId, 'text.embed');
+});
+
+test('tester model picker catalog uses runtimeAdmin connector surfaces only', () => {
+  const provider = read('src/tester/tester-runtime-model-provider.ts');
+  const summary = read('src/tester/tester-ai-config.ts');
+
+  assert.match(provider, /runtimeAdmin\.listConnectors/);
+  assert.match(provider, /runtimeAdmin\.listConnectorModels/);
+  assert.match(provider, /requireRuntimeClient/);
+  assert.match(provider, /model catalog failed closed/);
+  assert.doesNotMatch(provider, /openai|anthropic|gemini|gpt-4|claude|mock.*success/i);
+  assert.match(summary, /runtimeAdmin\.listConnectors\/listConnectorModels/);
 });
 
 test('tester app-owned Tauri commands are registered in standalone shell', () => {
