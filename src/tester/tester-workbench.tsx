@@ -8,6 +8,7 @@ import { testerTestIds } from './tester-test-ids.js';
 import { appId, scaffoldProfile } from '../shell/auth/runtime-platform.js';
 import { WorkbenchSideNav } from './workbench/workbench-side-nav.js';
 import { WorkbenchCommandBar } from './workbench/workbench-command-bar.js';
+import { ReadinessBand } from './workbench/readiness-band.js';
 import { SectionAITesting } from './workbench/section-ai-testing.js';
 import { SectionRuns } from './workbench/section-runs.js';
 import { SectionArtifacts } from './workbench/section-artifacts.js';
@@ -137,6 +138,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
           onRunCheck={handleRunCheck}
           onCaptureEvidence={handleCaptureEvidence}
         />
+        <ReadinessBand summary={summary} evidenceCapture="disabled" />
         <div className="workbench__content">
           {section === 'ai-testing' ? (
             <SectionAITesting
@@ -148,6 +150,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
               history={history}
               lastResult={lastResult}
               historyError={historyError}
+              onOpenKitComponents={() => setSection('kit-components')}
             />
           ) : null}
           {section === 'kit-components' ? <KitComponentGallery /> : null}
