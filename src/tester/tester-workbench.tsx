@@ -8,6 +8,7 @@ import { testerTestIds } from './tester-test-ids.js';
 import { appId, scaffoldProfile } from '../shell/auth/runtime-platform.js';
 import { WorkbenchSideNav } from './workbench/workbench-side-nav.js';
 import { WorkbenchCommandBar } from './workbench/workbench-command-bar.js';
+import { SectionAppLab } from './workbench/section-app-lab.js';
 import { SectionAITesting } from './workbench/section-ai-testing.js';
 import { SectionRuns } from './workbench/section-runs.js';
 import { SectionArtifacts } from './workbench/section-artifacts.js';
@@ -138,7 +139,20 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
           onCaptureEvidence={handleCaptureEvidence}
         />
         <div className="workbench__content">
-          {section === 'app-lab' || section === 'ai-capabilities' ? (
+          {section === 'app-lab' ? (
+            <SectionAppLab
+              activeId={activeCapabilityId}
+              onSelect={handleSelectCapability}
+              capability={capability}
+              onResult={handleCapabilityResult}
+              summary={summary}
+              history={history}
+              lastResult={lastResult}
+              historyError={historyError}
+              onOpenKitComponents={() => setSection('ui-recipes')}
+            />
+          ) : null}
+          {section === 'ai-capabilities' ? (
             <SectionAITesting
               activeId={activeCapabilityId}
               onSelect={handleSelectCapability}
