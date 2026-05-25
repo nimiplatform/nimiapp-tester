@@ -1,4 +1,5 @@
 import type { PlatformClient } from '@nimiplatform/sdk';
+import { ConnectorKind, ConnectorStatus } from '@nimiplatform/sdk/runtime';
 import type {
   RouteConnector,
   RouteConnectorModel,
@@ -21,6 +22,19 @@ function stringList(value: unknown): string[] {
     : [];
 }
 
+type RuntimeConnectorRecord = RouteConnector & {
+  kind: unknown;
+  localCategory: unknown;
+};
+
+const LOCAL_CONNECTOR_CATEGORY_UNSPECIFIED = 0;
+const LOCAL_CONNECTOR_CATEGORY_LLM = 1;
+const LOCAL_CONNECTOR_CATEGORY_VISION = 2;
+const LOCAL_CONNECTOR_CATEGORY_IMAGE = 3;
+const LOCAL_CONNECTOR_CATEGORY_TTS = 4;
+const LOCAL_CONNECTOR_CATEGORY_STT = 5;
+const LOCAL_CONNECTOR_CATEGORY_CUSTOM = 6;
+
 async function requireRuntimeClient(): Promise<PlatformClient> {
   const projection = await getRuntimePlatformProjection();
   if (projection.status !== 'ready') {
@@ -35,7 +49,7 @@ function statusName(value: unknown): string {
   return 'unknown';
 }
 
-function normalizeConnector(value: unknown): RouteConnector | null {
+function normalizeConnector(value: unknown): RuntimeConnectorRecord | null {
   const record = asRecord(value);
   const connectorId = text(record.connectorId) || text(record.connector_id) || text(record.id);
   if (!connectorId) return null;
@@ -45,6 +59,8 @@ function normalizeConnector(value: unknown): RouteConnector | null {
     provider,
     label: text(record.label) || provider,
     status: statusName(record.status),
+    kind: record.kind,
+    localCategory: record.localCategory ?? record.local_category,
   };
 }
 
@@ -64,8 +80,94 @@ function normalizeConnectorModel(value: unknown, capability: string): RouteConne
   };
 }
 
-async function listAllConnectors(client: PlatformClient): Promise<RouteConnector[]> {
-  const connectors: RouteConnector[] = [];
+function enumToken(value: unknown): string {
+  if (typeof value === 'string') return value.trim().toUpperCase();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return '';
+}
+
+function isLocalConnector(connector: RuntimeConnectorRecord): boolean {
+  const kind = enumToken(connector.kind);
+  const localCategory = enumToken(connector.localCategory);
+  return kind === String(ConnectorKind.LOCAL_MODEL)
+    || kind === 'LOCAL_MODEL'
+    || kind === 'CONNECTOR_KIND_LOCAL_MODEL'
+    || (
+      localCategory !== ''
+      && localCategory !== String(LOCAL_CONNECTOR_CATEGORY_UNSPECIFIED)
+      && localCategory !== 'UNSPECIFIED'
+      && localCategory !== 'LOCAL_CONNECTOR_CATEGORY_UNSPECIFIED'
+    );
+}
+
+function isRemoteManagedConnector(connector: RuntimeConnectorRecord): boolean {
+  const kind = enumToken(connector.kind);
+  return kind === String(ConnectorKind.REMOTE_MANAGED)
+    || kind === 'REMOTE_MANAGED'
+    || kind === 'CONNECTOR_KIND_REMOTE_MANAGED';
+}
+
+function localEngineFor(connector: RuntimeConnectorRecord): string {
+  const category = enumToken(connector.localCategory);
+  if (
+    category === String(LOCAL_CONNECTOR_CATEGORY_TTS)
+    || category === String(LOCAL_CONNECTOR_CATEGORY_STT)
+    || category === 'TTS'
+    || category === 'STT'
+    || category === 'LOCAL_CONNECTOR_CATEGORY_TTS'
+    || category === 'LOCAL_CONNECTOR_CATEGORY_STT'
+  ) {
+    return 'speech';
+  }
+  if (
+    category === String(LOCAL_CONNECTOR_CATEGORY_VISION)
+    || category === String(LOCAL_CONNECTOR_CATEGORY_IMAGE)
+    || category === 'VISION'
+    || category === 'IMAGE'
+    || category === 'LOCAL_CONNECTOR_CATEGORY_VISION'
+    || category === 'LOCAL_CONNECTOR_CATEGORY_IMAGE'
+  ) {
+    return 'media';
+  }
+  if (
+    category === String(LOCAL_CONNECTOR_CATEGORY_CUSTOM)
+    || category === 'CUSTOM'
+    || category === 'LOCAL_CONNECTOR_CATEGORY_CUSTOM'
+  ) {
+    return 'sidecar';
+  }
+  if (
+    category === String(LOCAL_CONNECTOR_CATEGORY_LLM)
+    || category === 'LLM'
+    || category === 'LOCAL_CONNECTOR_CATEGORY_LLM'
+  ) {
+    return 'runtime-local-llm';
+  }
+  return 'runtime-local-llm';
+}
+
+function localStatusFor(connector: RuntimeConnectorRecord, model: RouteConnectorModel): RouteLocalModel['status'] {
+  if (!model.available) return 'unhealthy';
+  const status = enumToken(connector.status);
+  if (
+    status === String(ConnectorStatus.ACTIVE)
+    || status === 'ACTIVE'
+    || status === 'CONNECTOR_STATUS_ACTIVE'
+  ) {
+    return 'active';
+  }
+  if (
+    status === String(ConnectorStatus.DISABLED)
+    || status === 'DISABLED'
+    || status === 'CONNECTOR_STATUS_DISABLED'
+  ) {
+    return 'removed';
+  }
+  return 'installed';
+}
+
+async function listAllConnectors(client: PlatformClient): Promise<RuntimeConnectorRecord[]> {
+  const connectors: RuntimeConnectorRecord[] = [];
   let pageToken = '';
   do {
     const response = await client.domains.runtimeAdmin.listConnectors({
@@ -106,19 +208,55 @@ async function listAllConnectorModels(
   return models;
 }
 
-export function createTesterRuntimeModelPickerProvider(capability: string): RouteModelPickerDataProvider {
+async function listRuntimeLocalModels(client: PlatformClient, capability: string): Promise<RouteLocalModel[]> {
+  const connectors = (await listAllConnectors(client)).filter(isLocalConnector);
+  const byModelId = new Map<string, RouteLocalModel>();
+  for (const connector of connectors) {
+    const models = await listAllConnectorModels(client, connector.connectorId, capability);
+    for (const model of models) {
+      const modelId = text(model.modelId);
+      if (!modelId || byModelId.has(modelId)) continue;
+      byModelId.set(modelId, {
+        localModelId: modelId,
+        modelId,
+        label: model.modelLabel || modelId,
+        engine: localEngineFor(connector),
+        status: localStatusFor(connector, model),
+        capabilities: model.capabilities,
+      });
+    }
+  }
+  return [...byModelId.values()];
+}
+
+function toRouteConnector(connector: RuntimeConnectorRecord): RouteConnector {
+  return {
+    connectorId: connector.connectorId,
+    provider: connector.provider,
+    label: connector.label,
+    status: connector.status,
+  };
+}
+
+export function createTesterRuntimeModelPickerProviderFromClient(
+  client: PlatformClient,
+  capability: string,
+): RouteModelPickerDataProvider {
   let connectorCache: RouteConnector[] | null = null;
+  let localModelCache: RouteLocalModel[] | null = null;
   const modelCache = new Map<string, RouteConnectorModel[]>();
 
   return {
     async listLocalModels(): Promise<RouteLocalModel[]> {
-      await requireRuntimeClient();
-      return [];
+      if (localModelCache) return localModelCache;
+      localModelCache = await listRuntimeLocalModels(client, capability);
+      return localModelCache;
     },
     async listConnectors(): Promise<RouteConnector[]> {
       if (connectorCache) return connectorCache;
-      const client = await requireRuntimeClient();
-      connectorCache = await listAllConnectors(client);
+      connectorCache = (await listAllConnectors(client))
+        .filter((connector) => isRemoteManagedConnector(connector) && !isLocalConnector(connector))
+        .map(toRouteConnector);
       return connectorCache;
     },
     async listConnectorModels(connectorId: string): Promise<RouteConnectorModel[]> {
@@ -126,14 +264,45 @@ export function createTesterRuntimeModelPickerProvider(capability: string): Rout
       if (!normalizedConnectorId) return [];
       const cached = modelCache.get(normalizedConnectorId);
       if (cached) return cached;
-      const client = await requireRuntimeClient();
       const models = await listAllConnectorModels(client, normalizedConnectorId, capability);
       modelCache.set(normalizedConnectorId, models);
       return models;
     },
     invalidate() {
       connectorCache = null;
+      localModelCache = null;
       modelCache.clear();
     },
   };
+}
+
+export function createTesterRuntimeModelPickerProvider(capability: string): RouteModelPickerDataProvider {
+  let providerPromise: Promise<RouteModelPickerDataProvider> | null = null;
+
+  async function resolveProvider(): Promise<RouteModelPickerDataProvider> {
+    if (!providerPromise) {
+      providerPromise = requireRuntimeClient()
+        .then((client) => createTesterRuntimeModelPickerProviderFromClient(client, capability));
+    }
+    return providerPromise;
+  }
+
+  const provider: RouteModelPickerDataProvider = {
+    async listLocalModels() {
+      return (await resolveProvider()).listLocalModels();
+    },
+    async listConnectors() {
+      return (await resolveProvider()).listConnectors();
+    },
+    async listConnectorModels(connectorId: string) {
+      return (await resolveProvider()).listConnectorModels(connectorId);
+    },
+    invalidate() {
+      if (providerPromise) {
+        void providerPromise.then((resolved) => resolved.invalidate?.());
+      }
+      providerPromise = null;
+    },
+  };
+  return provider;
 }

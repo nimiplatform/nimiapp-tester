@@ -88,6 +88,10 @@ function validateRuntimeRouteBinding(value: unknown, path: string): string[] {
   }
   if (typeof binding.connectorId !== 'string') {
     errors.push(`${path}.connectorId must be a string`);
+  } else if (binding.source === 'local' && binding.connectorId.trim()) {
+    errors.push(`${path}.connectorId must be empty for local Runtime bindings`);
+  } else if (binding.source === 'cloud' && !binding.connectorId.trim()) {
+    errors.push(`${path}.connectorId is required for cloud Runtime bindings`);
   }
   if (typeof binding.model !== 'string' || !binding.model.trim()) {
     errors.push(`${path}.model is required`);
@@ -265,13 +269,9 @@ export function loadTesterAIConfig(scopeRef: AIScopeRef = createTesterAppLabAISc
     return cloneConfig(empty);
   }
 
-  try {
-    const raw = storage.getItem(TESTER_AI_CONFIG_STORAGE_KEY);
-    if (!raw) return createEmptyAIConfig(scopeRef);
-    return parseStoredConfig(raw, scopeRef);
-  } catch {
-    return createEmptyAIConfig(scopeRef);
-  }
+  const raw = storage.getItem(TESTER_AI_CONFIG_STORAGE_KEY);
+  if (!raw) return createEmptyAIConfig(scopeRef);
+  return parseStoredConfig(raw, scopeRef);
 }
 
 function notifyConfig(scopeRef: AIScopeRef, next: AIConfig): void {

@@ -165,6 +165,25 @@ export function resolveTesterLLMBinding(
       `AIConfig binding for ${bindingCapabilityId} does not include a runtime model id.`,
     );
   }
+  const connectorId = String(binding.connectorId || '').trim();
+  if (binding.source === 'local' && connectorId) {
+    return unavailableFromAIConfig(
+      capabilityId,
+      `AIConfig binding for ${bindingCapabilityId} is local but includes connectorId; Runtime local bindings must use connectorId="" and route by model id.`,
+    );
+  }
+  if (binding.source === 'cloud' && !connectorId) {
+    return unavailableFromAIConfig(
+      capabilityId,
+      `AIConfig binding for ${bindingCapabilityId} is cloud but does not include a runtime connectorId.`,
+    );
+  }
+  if (binding.source !== 'local' && binding.source !== 'cloud') {
+    return unavailableFromAIConfig(
+      capabilityId,
+      `AIConfig binding for ${bindingCapabilityId} has unsupported source "${String(binding.source)}".`,
+    );
+  }
   const evidence = createAIConfigEvidence(config);
   const scopeRef = config.scopeRef;
   return {
@@ -194,10 +213,16 @@ function routeInput(binding: RuntimeRouteBinding, model: string): {
   route: 'local' | 'cloud';
 } {
   const connectorId = String(binding.connectorId || '').trim();
+  if (binding.source === 'cloud') {
+    return {
+      model,
+      connectorId,
+      route: 'cloud',
+    };
+  }
   return {
     model,
-    connectorId: connectorId || undefined,
-    route: binding.source === 'cloud' ? 'cloud' : 'local',
+    route: 'local',
   };
 }
 

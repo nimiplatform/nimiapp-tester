@@ -48,6 +48,7 @@ function buildBehaviorModules() {
     'false',
     'src/tester/tester-runtime-invokers.ts',
     'src/tester/tester-ai-config-store.ts',
+    'src/tester/tester-runtime-model-provider.ts',
   ], {
     cwd: root,
     stdio: 'pipe',
@@ -58,6 +59,30 @@ function buildBehaviorModules() {
 async function importBehaviorModule(relativePath) {
   const buildDir = buildBehaviorModules();
   return import(pathToFileURL(path.join(buildDir, relativePath)).href);
+}
+
+function createMemoryStorage(initial = {}) {
+  const map = new Map(Object.entries(initial));
+  return {
+    get length() {
+      return map.size;
+    },
+    clear() {
+      map.clear();
+    },
+    getItem(key) {
+      return map.has(key) ? map.get(key) : null;
+    },
+    key(index) {
+      return [...map.keys()][index] || null;
+    },
+    removeItem(key) {
+      map.delete(key);
+    },
+    setItem(key, value) {
+      map.set(key, String(value));
+    },
+  };
 }
 
 test.after(() => {
@@ -299,8 +324,10 @@ test('tester LLM invokers consume AIConfig bindings and fail closed without bind
   assert.match(invokers, /capabilityId === 'text\.embed'/);
   assert.match(invokers, /Runtime invocation failed closed before request dispatch/);
   assert.match(invokers, /routeInput/);
-  assert.match(invokers, /connectorId: connectorId \|\| undefined/);
-  assert.match(invokers, /route: binding\.source === 'cloud' \? 'cloud' : 'local'/);
+  assert.match(invokers, /binding\.source === 'local' && connectorId/);
+  assert.match(invokers, /binding\.source === 'cloud' && !connectorId/);
+  assert.match(invokers, /connectorId,\s*\n\s*route: 'cloud'/);
+  assert.match(invokers, /route: 'local'/);
   assert.match(invokers, /aiConfigScopeKind/);
   assert.match(invokers, /aiConfigProfileId/);
   assert.match(invokers, /aiConfigBindingCapabilityId/);
@@ -339,6 +366,24 @@ test('tester LLM binding resolver fails closed for missing and malformed binding
   assert.equal(malformedProfile.ok, false);
   assert.match(malformedProfile.message, /binding validation failed/i);
 
+  const localConnectorProfile = store.importTesterAIProfileJson(JSON.stringify({
+    profileId: 'local-connector-facade',
+    title: 'Local Connector Facade',
+    description: '',
+    tags: [],
+    capabilities: {
+      'text.generate': {
+        binding: {
+          source: 'local',
+          connectorId: 'runtime-local-facade',
+          model: 'local.chat.gemma-4-e2b-it.q8-0',
+        },
+      },
+    },
+  }));
+  assert.equal(localConnectorProfile.ok, false);
+  assert.match(localConnectorProfile.errors.join('\n'), /connectorId.*local/i);
+
   assert.throws(() => store.saveTesterAIConfig({
     scopeRef,
     capabilities: {
@@ -354,6 +399,53 @@ test('tester LLM binding resolver fails closed for missing and malformed binding
     },
     profileOrigin: null,
   }), /AIConfig binding validation failed/);
+
+  assert.throws(() => store.saveTesterAIConfig({
+    scopeRef,
+    capabilities: {
+      selectedBindings: {
+        'text.generate': {
+          source: 'local',
+          connectorId: 'runtime-local-facade',
+          model: 'local.chat.gemma-4-e2b-it.q8-0',
+        },
+      },
+      localProfileRefs: {},
+      selectedParams: {},
+    },
+    profileOrigin: null,
+  }), /connectorId.*local/i);
+
+  const previousWindow = globalThis.window;
+  const invalidStoredConfig = {
+    scopeRef,
+    capabilities: {
+      selectedBindings: {
+        'text.generate': {
+          source: 'local',
+          connectorId: 'runtime-local-facade',
+          model: 'local.chat.gemma-4-e2b-it.q8-0',
+        },
+      },
+      localProfileRefs: {},
+      selectedParams: {},
+    },
+    profileOrigin: null,
+  };
+  try {
+    globalThis.window = {
+      localStorage: createMemoryStorage({
+        [store.TESTER_AI_CONFIG_STORAGE_KEY]: JSON.stringify(invalidStoredConfig),
+      }),
+    };
+    assert.throws(() => store.loadTesterAIConfig(scopeRef), /Stored AIConfig binding is invalid: .*connectorId.*local/i);
+  } finally {
+    if (previousWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      globalThis.window = previousWindow;
+    }
+  }
 });
 
 test('tester LLM invoker dispatches configured AIConfig route payload', async () => {
@@ -450,16 +542,165 @@ test('tester LLM invoker dispatches configured AIConfig route payload', async ()
   assert.deepEqual(captured.map((entry) => entry.surface), ['generate', 'stream', 'embed']);
   assert.equal(captured[0].input.model, 'runtime-model');
   assert.equal(captured[0].input.connectorId, 'runtime-connector');
+  assert.equal(Object.hasOwn(captured[0].input, 'connectorId'), true);
   assert.equal(captured[0].input.route, 'cloud');
   assert.equal(captured[0].input.metadata.aiConfigProfileId, 'behavior-profile');
   assert.equal(captured[0].input.metadata.aiConfigBindingCapabilityId, 'text.generate');
   assert.equal(captured[1].input.model, 'runtime-model');
   assert.equal(captured[1].input.connectorId, 'runtime-connector');
+  assert.equal(Object.hasOwn(captured[1].input, 'connectorId'), true);
   assert.equal(captured[1].input.route, 'cloud');
   assert.equal(captured[2].input.model, 'embedding-model');
   assert.equal(captured[2].input.connectorId, undefined);
+  assert.equal(Object.hasOwn(captured[2].input, 'connectorId'), false);
   assert.equal(captured[2].input.route, 'local');
   assert.equal(captured[2].input.metadata.aiConfigBindingCapabilityId, 'text.embed');
+});
+
+test('tester local text.generate binding omits runtime connectorId payload', async () => {
+  const invokers = await importBehaviorModule('tester/tester-runtime-invokers.js');
+  const store = await importBehaviorModule('tester/tester-ai-config-store.js');
+  const scopeRef = store.createTesterAppLabAIScopeRef();
+  const runtimeLocalModelId = 'local.chat.gemma-4-e2b-it.q8-0';
+  store.saveTesterAIConfig({
+    scopeRef,
+    capabilities: {
+      selectedBindings: {
+        'text.generate': {
+          source: 'local',
+          connectorId: '',
+          model: runtimeLocalModelId,
+          modelId: runtimeLocalModelId,
+          localModelId: runtimeLocalModelId,
+          engine: 'runtime-local-llm',
+        },
+      },
+      localProfileRefs: {},
+      selectedParams: {},
+    },
+    profileOrigin: null,
+  });
+
+  let capturedInput = null;
+  const client = {
+    runtime: {
+      ai: {
+        text: {
+          async generate(input) {
+            capturedInput = input;
+            return {
+              text: 'nimi runtime llm ok',
+              finishReason: 'stop',
+              usage: { inputTokens: 1, outputTokens: 4, totalTokens: 5 },
+              trace: { traceId: 'trace-local', modelResolved: input.model, routeDecision: input.route },
+            };
+          },
+          async stream() {
+            throw new Error('stream should not be called');
+          },
+        },
+        embedding: {
+          async generate() {
+            throw new Error('embedding should not be called');
+          },
+        },
+      },
+    },
+  };
+
+  const result = await invokers.invokeTesterCapability(client, 'text.generate', {
+    prompt: 'Reply with exactly: nimi runtime llm ok',
+    scenarioId: 'local-behavior',
+  });
+  assert.equal(result.ok, true);
+  assert.equal(capturedInput.model, runtimeLocalModelId);
+  assert.equal(capturedInput.route, 'local');
+  assert.equal(capturedInput.connectorId, undefined);
+  assert.equal(Object.hasOwn(capturedInput, 'connectorId'), false);
+});
+
+test('tester model picker maps Runtime local connector facades to local models only', async () => {
+  const providerModule = await importBehaviorModule('tester/tester-runtime-model-provider.js');
+  const calls = [];
+  const localConnectorId = 'runtime-local-llm-facade';
+  const remoteConnectorId = 'runtime-cloud-managed';
+  const runtimeLocalModelId = 'local.chat.gemma-4-e2b-it.q8-0';
+  const provider = providerModule.createTesterRuntimeModelPickerProviderFromClient({
+    domains: {
+      runtimeAdmin: {
+        async listConnectors(input) {
+          calls.push({ surface: 'listConnectors', input });
+          return {
+            connectors: [
+              {
+                connectorId: localConnectorId,
+                provider: 'local',
+                label: 'Runtime Local LLM',
+                kind: 1,
+                localCategory: 1,
+                status: 1,
+              },
+              {
+                connectorId: remoteConnectorId,
+                provider: 'cloud-provider',
+                label: 'Cloud Provider',
+                kind: 2,
+                localCategory: 0,
+                status: 1,
+              },
+            ],
+            nextPageToken: '',
+          };
+        },
+        async listConnectorModels(input) {
+          calls.push({ surface: 'listConnectorModels', input });
+          if (input.connectorId === localConnectorId) {
+            return {
+              models: [
+                {
+                  modelId: runtimeLocalModelId,
+                  modelLabel: 'Gemma 4 E2B Local',
+                  available: true,
+                  capabilities: ['text.generate'],
+                },
+              ],
+              nextPageToken: '',
+            };
+          }
+          return {
+            models: [
+              {
+                modelId: 'remote.chat.model',
+                modelLabel: 'Remote Chat Model',
+                available: true,
+                capabilities: ['text.generate'],
+              },
+            ],
+            nextPageToken: '',
+          };
+        },
+      },
+    },
+  }, 'text.generate');
+
+  const connectors = await provider.listConnectors();
+  assert.deepEqual(connectors.map((connector) => connector.connectorId), [remoteConnectorId]);
+
+  const localModels = await provider.listLocalModels();
+  assert.deepEqual(localModels, [
+    {
+      localModelId: runtimeLocalModelId,
+      modelId: runtimeLocalModelId,
+      label: 'Gemma 4 E2B Local',
+      engine: 'runtime-local-llm',
+      status: 'active',
+      capabilities: ['text.generate'],
+    },
+  ]);
+  assert.equal(localModels[0].localModelId, runtimeLocalModelId);
+  assert.equal(localModels[0].modelId, runtimeLocalModelId);
+  assert.equal(calls.some((call) => call.surface === 'listConnectorModels' && call.input.connectorId === localConnectorId), true);
+  assert.equal(connectors.some((connector) => connector.connectorId === localConnectorId), false);
 });
 
 test('tester model picker catalog uses runtimeAdmin connector surfaces only', () => {
@@ -470,6 +711,8 @@ test('tester model picker catalog uses runtimeAdmin connector surfaces only', ()
   assert.match(provider, /runtimeAdmin\.listConnectorModels/);
   assert.match(provider, /requireRuntimeClient/);
   assert.match(provider, /model catalog failed closed/);
+  assert.match(provider, /listLocalModels/);
+  assert.match(provider, /ConnectorKind\.REMOTE_MANAGED/);
   assert.doesNotMatch(provider, /openai|anthropic|gemini|gpt-4|claude|mock.*success/i);
   assert.match(summary, /runtimeAdmin\.listConnectors\/listConnectorModels/);
 });
