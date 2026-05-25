@@ -481,12 +481,12 @@ function CapabilityDetail({
           ok: true,
           capabilityId: capability.id,
           capabilityLabel: capability.label,
-          message: `Viewer opened for a Tauri-only fixture (${fixture.manifestPath}); no runtime generation or artifact was produced.`,
+          message: `Viewer opened for a Tauri-only local fixture (${fixture.manifestPath}); local fixture record only, with no runtime generation or runtime artifact.`,
           output: {
-            kind: 'artifacts',
-            jobId: opened.windowLabel,
-            jobState: 'window-opened',
-            artifactCount: 0,
+            kind: 'text',
+            text: `Local fixture viewer opened (${opened.windowLabel}). This is not a runtime result or runtime artifact.`,
+            finishReason: 'viewer-opened',
+            streamed: false,
           },
         }, prompt);
       } else {
@@ -570,7 +570,7 @@ function CapabilityDetail({
               Reset request
             </Button>
           </div>
-          <small>{admission.label === 'blocked' || admission.label === 'SDK gap' ? 'Fail-closed if invoked; no pseudo-success is generated.' : 'Result is persisted through the local run history callback.'}</small>
+          <small>{admission.label === 'blocked' || admission.label === 'SDK gap' ? 'Fail-closed if invoked; no fabricated success is generated.' : 'Result is persisted through the local run history callback.'}</small>
         </section>
 
         <section className="ai-detail-panel ai-detail-panel--result" aria-label="Result">

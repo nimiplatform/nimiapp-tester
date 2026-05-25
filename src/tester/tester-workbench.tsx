@@ -80,7 +80,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
           id: makeRecordId(),
           capabilityId: result.capabilityId,
           prompt,
-          status: result.ok ? 'ready' : 'unavailable',
+          status: result.capabilityId === 'world.generate' && result.ok ? 'local-fixture' : result.ok ? 'ready' : 'unavailable',
           message: result.message,
           createdAt: new Date().toISOString(),
         });

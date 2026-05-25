@@ -4,7 +4,7 @@ export type TesterRunHistoryRecord = {
   id: string;
   capabilityId: string;
   prompt: string;
-  status: 'unavailable' | 'ready' | 'failed';
+  status: 'unavailable' | 'ready' | 'failed' | 'local-fixture';
   message: string;
   createdAt: string;
 };

@@ -22,8 +22,9 @@ function flattenHistory(history: TesterRunHistory): FlatRecord[] {
   return records;
 }
 
-function statusTone(status: TesterRunHistoryRecord['status']): 'success' | 'warning' | 'danger' {
+function statusTone(status: TesterRunHistoryRecord['status']): 'success' | 'warning' | 'danger' | 'info' {
   if (status === 'ready') return 'success';
+  if (status === 'local-fixture') return 'info';
   if (status === 'failed') return 'danger';
   return 'warning';
 }
