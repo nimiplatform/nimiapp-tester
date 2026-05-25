@@ -11,6 +11,7 @@ import {
   Code2,
   Copy,
   Cpu,
+  FileSearch,
   FormInput,
   GalleryHorizontalEnd,
   Layers,
@@ -62,8 +63,10 @@ import {
   TextField,
   Toggle,
 } from '@nimiplatform/kit/ui';
+import type { WorkbenchSectionId } from './workbench/workbench-context.js';
 
 type Boundary = 'do' | 'dont';
+type RecipeState = 'ready' | 'loading' | 'blocked' | 'empty' | 'local-fixture' | 'unavailable';
 
 type RecipeUsage = {
   intent: string;
@@ -87,6 +90,22 @@ type Family = {
   label: string;
   description: string;
   icon: LucideIcon;
+};
+
+type SurfaceScenario = {
+  id: string;
+  title: string;
+  workflow: string;
+  icon: LucideIcon;
+  intent: string;
+  primitives: string[];
+  states: RecipeState[];
+  defaultState: RecipeState;
+  steps: string[];
+  imports: string[];
+  boundaries: string[];
+  workflowLinks: Array<{ label: string; section: WorkbenchSectionId; note: string }>;
+  families: FamilyId[];
 };
 
 const families: Family[] = [
@@ -565,7 +584,7 @@ const recipes: Record<FamilyId, Recipe[]> = {
         imports: ['EmptyState, Button from @nimiplatform/kit/ui'],
         boundaries: [
           { kind: 'do', copy: 'Name the action and the source store that will fill the surface.' },
-          { kind: 'dont', copy: 'Do not show synthetic placeholder rows under the empty state.' },
+          { kind: 'dont', copy: 'Do not show invented placeholder rows under the empty state.' },
         ],
       },
     },
@@ -715,132 +734,621 @@ function ScrollAreaPreview() {
   );
 }
 
-function RecipeView({ recipe }: { recipe: Recipe }) {
+const surfaceScenarios: SurfaceScenario[] = [
+  {
+    id: 'ai-request-panel',
+    title: 'AI request panel',
+    workflow: 'App Lab capability run',
+    icon: Sparkles,
+    intent: 'Collect a prompt, capability route, and typed readiness before a runtime-backed AI call.',
+    primitives: ['Surface', 'FieldShell', 'TextareaField', 'SelectField', 'StatusBadge', 'Button'],
+    states: ['ready', 'loading', 'blocked', 'unavailable'],
+    defaultState: 'blocked',
+    steps: ['Surface shell', 'FieldShell input', 'Capability selector', 'Action row', 'Readiness message'],
+    imports: [
+      'Surface, FieldShell, TextareaField from @nimiplatform/kit/ui',
+      'SelectField, StatusBadge, Button from @nimiplatform/kit/ui',
+    ],
+    boundaries: [
+      'Use typed SDK methods only; never import runtime/internal paths.',
+      'No app-local REST or provider bypass from the request panel.',
+      'Show blocked or unavailable states instead of claiming a runtime result.',
+    ],
+    workflowLinks: [
+      { label: 'Open App Lab', section: 'app-lab', note: 'Run the capability from the real App Lab lane.' },
+      { label: 'Open AI Capabilities', section: 'ai-capabilities', note: 'Inspect SDK admission and route readiness.' },
+    ],
+    families: ['inputs', 'actions', 'feedback', 'surfaces'],
+  },
+  {
+    id: 'runtime-result-surface',
+    title: 'Runtime result surface',
+    workflow: 'AI Capabilities result',
+    icon: TerminalSquare,
+    intent: 'Render runtime output, empty state, or a typed blocker without inventing execution proof.',
+    primitives: ['Surface', 'StatusBadge', 'LoadingSkeleton', 'EmptyState', 'IconButton'],
+    states: ['ready', 'loading', 'empty', 'blocked'],
+    defaultState: 'empty',
+    steps: ['Result shell', 'Status header', 'Output viewport', 'Copy action', 'Typed empty or blocker state'],
+    imports: [
+      'Surface, StatusBadge, LoadingSkeleton from @nimiplatform/kit/ui',
+      'EmptyState, IconButton from @nimiplatform/kit/ui',
+    ],
+    boundaries: [
+      'Render only SDK-returned content or a typed local state.',
+      'Do not fabricate success or artifacts for a pending run.',
+      'Keep copy actions scoped to visible result text.',
+    ],
+    workflowLinks: [
+      { label: 'Open AI Capabilities', section: 'ai-capabilities', note: 'Run one admitted SDK lane.' },
+      { label: 'Open Runs', section: 'runs', note: 'Review persisted run history after a real run.' },
+    ],
+    families: ['surfaces', 'states', 'feedback', 'actions'],
+  },
+  {
+    id: 'sdk-blocker-state',
+    title: 'SDK blocker state',
+    workflow: 'Boundary Checks',
+    icon: AlertTriangle,
+    intent: 'Explain missing SDK or runtime admission with a direct action and clear fail-closed copy.',
+    primitives: ['InlineAlert', 'StatusBadge', 'Button', 'Surface'],
+    states: ['blocked', 'unavailable', 'ready'],
+    defaultState: 'blocked',
+    steps: ['Alert shell', 'Typed reason', 'Boundary badge', 'Review action'],
+    imports: ['InlineAlert, StatusBadge, Button, Surface from @nimiplatform/kit/ui'],
+    boundaries: [
+      'Name the missing public SDK method or admission gap.',
+      'No Desktop private imports to reach around SDK admission.',
+      'No fabricated success after a blocker is observed.',
+    ],
+    workflowLinks: [
+      { label: 'Open Boundary Checks', section: 'boundary-checks', note: 'Inspect strict boundary status.' },
+      { label: 'Open Runtime Trace', section: 'runtime-trace', note: 'Review runtime projection evidence.' },
+    ],
+    families: ['feedback', 'states', 'actions'],
+  },
+  {
+    id: 'evidence-action-row',
+    title: 'Evidence action row',
+    workflow: 'Capture evidence',
+    icon: ClipboardCheck,
+    intent: 'Gate evidence capture on a real request, result, and trace record.',
+    primitives: ['Surface', 'Button', 'StatusBadge', 'ActionMenu', 'IconButton'],
+    states: ['ready', 'loading', 'blocked', 'empty'],
+    defaultState: 'empty',
+    steps: ['Evidence summary', 'Capture button', 'Run linkage', 'Overflow actions'],
+    imports: ['Surface, Button, StatusBadge, ActionMenu, IconButton from @nimiplatform/kit/ui'],
+    boundaries: [
+      'Capture only available request, result, and trace records.',
+      'Do not write local evidence for a run that never happened.',
+      'Keep artifact links bound to persisted run history.',
+    ],
+    workflowLinks: [
+      { label: 'Open App Lab', section: 'app-lab', note: 'Produce the run before capture.' },
+      { label: 'Open Artifacts', section: 'artifacts', note: 'Inspect captured outputs.' },
+    ],
+    families: ['actions', 'feedback', 'surfaces', 'overlays'],
+  },
+  {
+    id: 'settings-preference',
+    title: 'Settings preference',
+    workflow: 'Developer settings',
+    icon: Settings,
+    intent: 'Persist app-owned preferences without mutating runtime, provider, or Desktop authority.',
+    primitives: ['Surface', 'Toggle', 'Checkbox', 'Slider', 'SegmentedControl'],
+    states: ['ready', 'local-fixture', 'unavailable'],
+    defaultState: 'ready',
+    steps: ['Preference shell', 'Boolean setting', 'Guardrail checkbox', 'Numeric control', 'Local save state'],
+    imports: ['Surface, Toggle, Checkbox, Slider, SegmentedControl from @nimiplatform/kit/ui'],
+    boundaries: [
+      'Preferences are app-owned local state unless the SDK exposes a write.',
+      'No provider/model hardcoding in defaults.',
+      'Unavailable runtime settings must stay visibly unavailable.',
+    ],
+    workflowLinks: [
+      { label: 'Open Settings', section: 'settings', note: 'Review local developer controls.' },
+      { label: 'Open App Lab', section: 'app-lab', note: 'Return to the active runtime surface.' },
+    ],
+    families: ['toggles', 'inputs', 'feedback', 'surfaces'],
+  },
+  {
+    id: 'artifact-gallery',
+    title: 'Artifact gallery',
+    workflow: 'Runs and artifacts',
+    icon: GalleryHorizontalEnd,
+    intent: 'Browse persisted artifacts while making empty and unavailable states explicit.',
+    primitives: ['Surface', 'ScrollArea', 'EmptyState', 'StatusBadge', 'Button'],
+    states: ['empty', 'loading', 'ready', 'unavailable'],
+    defaultState: 'empty',
+    steps: ['Gallery shell', 'Artifact source status', 'Scrollable index', 'Empty fallback', 'Open artifact action'],
+    imports: ['Surface, ScrollArea, EmptyState, StatusBadge, Button from @nimiplatform/kit/ui'],
+    boundaries: [
+      'List only artifacts linked to persisted run records.',
+      'Do not create sample media to fill the gallery.',
+      'Keep unavailable media capabilities separate from empty history.',
+    ],
+    workflowLinks: [
+      { label: 'Open Artifacts', section: 'artifacts', note: 'Review captured artifact records.' },
+      { label: 'Open Runs', section: 'runs', note: 'Trace each artifact to a run.' },
+    ],
+    families: ['surfaces', 'states', 'actions', 'feedback'],
+  },
+  {
+    id: 'runtime-trace-inspector',
+    title: 'Runtime trace inspector',
+    workflow: 'Runtime trace',
+    icon: FileSearch,
+    intent: 'Inspect transport, SDK admission, and evidence linkage as typed trace facts.',
+    primitives: ['Surface', 'ScrollArea', 'StatusBadge', 'InlineAlert', 'ActionMenu'],
+    states: ['ready', 'loading', 'empty', 'blocked'],
+    defaultState: 'empty',
+    steps: ['Trace shell', 'Transport badges', 'Scrollable events', 'Boundary alert', 'Trace actions'],
+    imports: ['Surface, ScrollArea, StatusBadge, InlineAlert, ActionMenu from @nimiplatform/kit/ui'],
+    boundaries: [
+      'Trace rows must come from runtime or local run history callbacks.',
+      'No app-owned transport fallback outside the SDK surface.',
+      'Unavailable trace capture is a valid terminal state.',
+    ],
+    workflowLinks: [
+      { label: 'Open Runtime Trace', section: 'runtime-trace', note: 'Inspect projection and trace evidence.' },
+      { label: 'Open Boundary Checks', section: 'boundary-checks', note: 'Verify import and transport boundaries.' },
+    ],
+    families: ['surfaces', 'feedback', 'states', 'overlays'],
+  },
+];
+
+function stateTone(state: RecipeState): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+  if (state === 'ready') return 'success';
+  if (state === 'loading' || state === 'local-fixture') return 'info';
+  if (state === 'blocked' || state === 'unavailable') return 'warning';
+  return 'neutral';
+}
+
+function stateLabel(state: RecipeState) {
+  return state.replace('-', ' ');
+}
+
+function RecipeScenarioPreview({ scenario, state }: { scenario: SurfaceScenario; state: RecipeState }) {
+  if (scenario.id === 'ai-request-panel') return <AiRequestPanelPreview state={state} />;
+  if (scenario.id === 'runtime-result-surface') return <RuntimeResultSurfacePreview state={state} />;
+  if (scenario.id === 'sdk-blocker-state') return <SdkBlockerPreview state={state} />;
+  if (scenario.id === 'evidence-action-row') return <EvidenceActionPreview state={state} />;
+  if (scenario.id === 'settings-preference') return <SettingsPreferencePreview state={state} />;
+  if (scenario.id === 'artifact-gallery') return <ArtifactGalleryPreview state={state} />;
+  return <RuntimeTracePreview state={state} />;
+}
+
+function AiRequestPanelPreview({ state }: { state: RecipeState }) {
+  const loading = state === 'loading';
+  const blocked = state === 'blocked' || state === 'unavailable';
   return (
-    <article className="recipe">
-      <header className="recipe__head">
-        <div className="recipe__title">
-          <h4>{recipe.name}</h4>
-          <span>kit public surface</span>
+    <Surface className="scenario-preview-surface" material="glass-thin" tone="card" elevation="base">
+      <div className="scenario-preview-head">
+        <div>
+          <p className="eyebrow">Capability request</p>
+          <strong>Text generation</strong>
         </div>
-        <ul className="recipe__variants" aria-label={`${recipe.name} variants`}>
-          {recipe.variants.map((variant) => <li key={variant}>{variant}</li>)}
-        </ul>
-      </header>
-      <Surface className="recipe__preview" material="glass-thin" tone="card" elevation="base">
-        {recipe.preview}
-      </Surface>
-      <section className="recipe__usage" aria-label={`${recipe.name} usage`}>
-        <p className="recipe__intent">{recipe.usage.intent}</p>
-        <div className="recipe__anatomy">
-          <p className="eyebrow">Anatomy</p>
-          <ul>
-            {recipe.anatomy.map((token) => <li key={token}>{token}</li>)}
-          </ul>
-        </div>
-        <div className="recipe__imports">
-          <p className="eyebrow">Imports</p>
-          <ul>
-            {recipe.usage.imports.map((line) => <li key={line}><code>{line}</code></li>)}
-          </ul>
-        </div>
-        <div className="recipe__boundaries">
-          <p className="eyebrow">Boundary</p>
-          <ul>
-            {recipe.usage.boundaries.map((rule) => (
-              <li key={rule.copy} className={`recipe__rule recipe__rule--${rule.kind}`}>
-                <span className="recipe__rule-tag">{rule.kind === 'do' ? 'do' : "don't"}</span>
-                <span>{rule.copy}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      </section>
-    </article>
+        <StatusBadge tone={stateTone(state)} shape="dot">{stateLabel(state)}</StatusBadge>
+      </div>
+      <FieldShell label="Prompt input" description="App-owned draft; runtime result appears only after an admitted SDK call.">
+        <TextareaField rows={4} defaultValue="Write a concise acceptance note for a runtime-backed Nimi App." />
+      </FieldShell>
+      <div className="scenario-inline-grid">
+        <FieldShell label="Capability">
+          <SelectField
+            defaultValue="runtime.ai.text.generate"
+            aria-label="Capability"
+            options={[
+              { value: 'runtime.ai.text.generate', label: 'Text generate' },
+              { value: 'runtime.ai.text.stream', label: 'Chat stream' },
+            ]}
+          />
+        </FieldShell>
+        <FieldShell label="Mode">
+          <SegmentedControl
+            items={[
+              { value: 'single', label: 'Single' },
+              { value: 'stream', label: 'Stream' },
+            ]}
+            value="single"
+            onValueChange={() => undefined}
+            ariaLabel="Request mode"
+            size="sm"
+          />
+        </FieldShell>
+      </div>
+      {blocked ? (
+        <InlineAlert tone="warning" icon={<AlertTriangle size={14} />}>
+          <div className="runtime-alert-copy">
+            <strong>Runtime unavailable</strong>
+            <span>Render the typed blocker and keep the run action disabled until SDK admission is available.</span>
+          </div>
+        </InlineAlert>
+      ) : null}
+      <div className="scenario-action-row">
+        <Button tone="primary" leadingIcon={<Play size={14} />} loading={loading} disabled={blocked}>
+          Run with Runtime
+        </Button>
+        <Button tone="secondary" leadingIcon={<RefreshCw size={14} />}>Refresh readiness</Button>
+      </div>
+    </Surface>
   );
 }
 
-export function KitComponentGallery() {
-  const [familyId, setFamilyId] = useState<FamilyId>('actions');
-  const [recipeId, setRecipeId] = useState<string>(recipes.actions[0].id);
+function RuntimeResultSurfacePreview({ state }: { state: RecipeState }) {
+  const loading = state === 'loading';
+  const blocked = state === 'blocked';
+  return (
+    <Surface className="scenario-preview-surface" material="glass-thin" tone="card" elevation="base">
+      <div className="scenario-preview-head">
+        <div>
+          <p className="eyebrow">Runtime result</p>
+          <strong>Result surface</strong>
+        </div>
+        <IconButton aria-label="Copy visible result" icon={<Copy size={14} />} disabled={state !== 'ready'} />
+      </div>
+      <div className="scenario-console">
+        {loading ? <LoadingSkeleton lines={4} /> : null}
+        {state === 'empty' ? (
+          <EmptyState
+            icon={<TerminalSquare size={18} />}
+            title="No runtime result yet"
+            description="Run an admitted capability before this surface shows output."
+          />
+        ) : null}
+        {blocked ? (
+          <InlineAlert tone="warning" icon={<AlertTriangle size={14} />}>
+            <div className="runtime-alert-copy">
+              <strong>Result blocked</strong>
+              <span>The SDK reported a typed unavailable state; no output is rendered.</span>
+            </div>
+          </InlineAlert>
+        ) : null}
+        {state === 'ready' ? (
+          <div className="scenario-console__ready">
+            <StatusBadge tone="success" shape="dot">ready for SDK result</StatusBadge>
+            <span>Bind this viewport to the real runtime result payload.</span>
+          </div>
+        ) : null}
+      </div>
+    </Surface>
+  );
+}
 
-  const activeFamily = families.find((family) => family.id === familyId) || families[0];
-  const familyRecipes = recipes[familyId] || [];
+function SdkBlockerPreview({ state }: { state: RecipeState }) {
+  const ready = state === 'ready';
+  return (
+    <Surface className="scenario-preview-surface" material="glass-thin" tone="card" elevation="base">
+      <InlineAlert tone={ready ? 'info' : 'warning'} icon={ready ? <ShieldCheck size={14} /> : <AlertTriangle size={14} />}>
+        <div className="runtime-alert-copy">
+          <strong>{ready ? 'SDK method admitted' : 'SDK method unavailable'}</strong>
+          <span>{ready ? 'The public kit surface can render the action safely.' : 'Show the typed reason and keep runtime execution closed.'}</span>
+        </div>
+      </InlineAlert>
+      <div className="scenario-rule-stack">
+        <StatusBadge tone={ready ? 'success' : 'warning'} shape="dot">{ready ? 'admitted' : stateLabel(state)}</StatusBadge>
+        <span>runtime.ai.text.generate through public SDK only</span>
+      </div>
+      <Button tone="secondary" leadingIcon={<ShieldCheck size={14} />}>Review boundary status</Button>
+    </Surface>
+  );
+}
+
+function EvidenceActionPreview({ state }: { state: RecipeState }) {
+  const canCapture = state === 'ready';
+  return (
+    <Surface className="scenario-preview-surface scenario-preview-surface--compact" material="glass-thin" tone="card" elevation="base">
+      <div className="scenario-preview-head">
+        <div>
+          <p className="eyebrow">Evidence action</p>
+          <strong>{canCapture ? 'Run record available' : 'No complete run record'}</strong>
+        </div>
+        <StatusBadge tone={stateTone(state)} shape="dot">{stateLabel(state)}</StatusBadge>
+      </div>
+      <div className="scenario-metric-row">
+        <span>request</span>
+        <StatusBadge tone={canCapture ? 'success' : 'neutral'}>{canCapture ? 'available' : 'pending'}</StatusBadge>
+        <span>result</span>
+        <StatusBadge tone={canCapture ? 'success' : 'neutral'}>{canCapture ? 'available' : 'pending'}</StatusBadge>
+        <span>trace</span>
+        <StatusBadge tone={canCapture ? 'success' : 'neutral'}>{canCapture ? 'available' : 'pending'}</StatusBadge>
+      </div>
+      <div className="scenario-action-row">
+        <Button tone="primary" leadingIcon={<ClipboardCheck size={14} />} disabled={!canCapture} loading={state === 'loading'}>
+          Capture evidence
+        </Button>
+        <ActionMenu
+          ariaLabel="Evidence actions"
+          items={[
+            { id: 'runs', label: 'Open run history', icon: <TerminalSquare size={13} /> },
+            { id: 'artifacts', label: 'Open artifacts', icon: <Boxes size={13} /> },
+          ]}
+        />
+      </div>
+    </Surface>
+  );
+}
+
+function SettingsPreferencePreview({ state }: { state: RecipeState }) {
+  return (
+    <Surface className="scenario-preview-surface" material="glass-thin" tone="card" elevation="base">
+      <div className="scenario-preview-head">
+        <div>
+          <p className="eyebrow">Developer preference</p>
+          <strong>Runtime guardrails</strong>
+        </div>
+        <StatusBadge tone={stateTone(state)} shape="dot">{stateLabel(state)}</StatusBadge>
+      </div>
+      <div className="scenario-setting-row">
+        <span>Strict boundary mode</span>
+        <Toggle checked={state !== 'unavailable'} onChange={() => undefined} disabled={state === 'unavailable'} />
+      </div>
+      <Checkbox checked label="Require typed SDK admission before run actions" onChange={() => undefined} />
+      <FieldShell label="Evidence retention">
+        <SegmentedControl
+          items={[
+            { value: 'local', label: 'Local' },
+            { value: 'manual', label: 'Manual' },
+          ]}
+          value="local"
+          onValueChange={() => undefined}
+          ariaLabel="Evidence retention"
+          size="sm"
+        />
+      </FieldShell>
+    </Surface>
+  );
+}
+
+function ArtifactGalleryPreview({ state }: { state: RecipeState }) {
+  const loading = state === 'loading';
+  const ready = state === 'ready';
+  return (
+    <Surface className="scenario-preview-surface" material="glass-thin" tone="card" elevation="base">
+      <div className="scenario-preview-head">
+        <div>
+          <p className="eyebrow">Artifacts</p>
+          <strong>Captured media index</strong>
+        </div>
+        <StatusBadge tone={stateTone(state)} shape="dot">{stateLabel(state)}</StatusBadge>
+      </div>
+      {loading ? <LoadingSkeleton lines={5} /> : null}
+      {!loading && !ready ? (
+        <EmptyState
+          icon={<GalleryHorizontalEnd size={18} />}
+          title={state === 'unavailable' ? 'Artifact surface unavailable' : 'No artifacts captured'}
+          description={state === 'unavailable' ? 'Keep media capabilities visibly unavailable.' : 'Run and capture a real artifact before listing media.'}
+        />
+      ) : null}
+      {ready ? (
+        <div className="scenario-record-slot">
+          <StatusBadge tone="success" shape="dot">record source ready</StatusBadge>
+          <span>Render rows from persisted artifact records only.</span>
+          <Button size="sm" tone="secondary" leadingIcon={<Boxes size={13} />}>Open artifact record</Button>
+        </div>
+      ) : null}
+    </Surface>
+  );
+}
+
+function RuntimeTracePreview({ state }: { state: RecipeState }) {
+  const loading = state === 'loading';
+  return (
+    <Surface className="scenario-preview-surface" material="glass-thin" tone="card" elevation="base">
+      <div className="scenario-preview-head">
+        <div>
+          <p className="eyebrow">Trace inspector</p>
+          <strong>Runtime projection</strong>
+        </div>
+        <StatusBadge tone={stateTone(state)} shape="dot">{stateLabel(state)}</StatusBadge>
+      </div>
+      {loading ? <LoadingSkeleton lines={4} /> : (
+        <ScrollArea className="scenario-artifact-list" viewportClassName="recipe-scroll-area__viewport" contentClassName="recipe-scroll-list">
+          {[
+            ['transport', state === 'blocked' ? 'blocked' : 'typed status'],
+            ['sdk admission', state === 'empty' ? 'no record' : 'checked'],
+            ['artifact link', state === 'ready' ? 'available' : 'not captured'],
+          ].map(([label, status]) => (
+            <div key={label} className="recipe-scroll-row">
+              <MessageSquare size={13} />
+              <span>{label}</span>
+              <StatusBadge tone={status === 'blocked' ? 'warning' : status === 'available' ? 'success' : 'neutral'}>{status}</StatusBadge>
+            </div>
+          ))}
+        </ScrollArea>
+      )}
+    </Surface>
+  );
+}
+
+function PrimitiveIndexStrip({
+  activeFamilyId,
+  onSelectFamily,
+}: {
+  activeFamilyId: FamilyId;
+  onSelectFamily: (family: FamilyId) => void;
+}) {
+  const family = families.find((item) => item.id === activeFamilyId) || families[0];
+  const familyRecipes = recipes[family.id] || [];
+  return (
+    <Surface className="primitive-index" material="glass-thin" tone="panel" elevation="base">
+      <div className="primitive-index__families" aria-label="Primitive families">
+        {families.map((item) => {
+          const Icon = item.icon;
+          const active = item.id === activeFamilyId;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              className={active ? 'primitive-index__family primitive-index__family--active' : 'primitive-index__family'}
+              onClick={() => onSelectFamily(item.id)}
+            >
+              <Icon size={13} aria-hidden="true" />
+              <span>{item.label}</span>
+              <strong>{recipes[item.id]?.length || 0}</strong>
+            </button>
+          );
+        })}
+      </div>
+      <div className="primitive-index__list">
+        <p className="eyebrow">{family.label} primitives</p>
+        <div>
+          {familyRecipes.map((recipe) => (
+            <span key={recipe.id} className="primitive-index__pill">{recipe.name}</span>
+          ))}
+        </div>
+      </div>
+    </Surface>
+  );
+}
+
+type KitComponentGalleryProps = {
+  onOpenSection?: (section: WorkbenchSectionId) => void;
+};
+
+export function KitComponentGallery({ onOpenSection }: KitComponentGalleryProps) {
+  const [scenarioId, setScenarioId] = useState(surfaceScenarios[0].id);
+  const [variant, setVariant] = useState<RecipeState>(surfaceScenarios[0].defaultState);
+  const [familyId, setFamilyId] = useState<FamilyId>(surfaceScenarios[0].families[0]);
+
+  const activeScenario = surfaceScenarios.find((scenario) => scenario.id === scenarioId) || surfaceScenarios[0];
   const totalRecipes = useMemo(
     () => families.reduce((sum, family) => sum + (recipes[family.id]?.length || 0), 0),
     [],
   );
-  const recipe = familyRecipes.find((item) => item.id === recipeId) || familyRecipes[0];
 
-  function pickFamily(nextId: FamilyId) {
-    setFamilyId(nextId);
-    const first = recipes[nextId]?.[0];
-    if (first) setRecipeId(first.id);
+  function pickScenario(nextScenario: SurfaceScenario) {
+    setScenarioId(nextScenario.id);
+    setVariant(nextScenario.defaultState);
+    setFamilyId(nextScenario.families[0]);
   }
 
   return (
     <section className="kit-gallery" data-testid="nimi-tester-kit-gallery">
       <header className="section-header section-header--compact">
         <div>
-          <p className="eyebrow">Nimi Kit Component System</p>
-          <h2>Recipe browser</h2>
-          <p>Pick a family, then a recipe. Each card shows the live preview, anatomy, imports, and the boundary rules a third-party Nimi App must respect.</p>
+          <p className="eyebrow">UI Recipes</p>
+          <h2>Nimi Kit recipes for runtime-backed apps</h2>
+          <p>Compose app-owned surfaces from reviewed Kit primitives without crossing Runtime or Desktop boundaries.</p>
         </div>
         <div className="kit-gallery__chips">
           <StatusBadge tone="info" shape="dot">kit public surface</StatusBadge>
           <StatusBadge tone="neutral">{totalRecipes} recipes</StatusBadge>
+          <StatusBadge tone="neutral">{families.length} families</StatusBadge>
+          <StatusBadge tone="success">no private imports</StatusBadge>
         </div>
       </header>
-      <div className="recipe-browser">
-        <nav className="recipe-browser__families" aria-label="Component families">
-          {families.map((family) => {
-            const Icon = family.icon;
-            const isActive = family.id === familyId;
-            const count = recipes[family.id]?.length || 0;
+      <div className="recipe-system">
+        <nav className="recipe-system__rail" aria-label="Surface scenarios">
+          <div className="recipe-system__rail-head">
+            <p className="eyebrow">Surface Scenario Rail</p>
+            <StatusBadge tone="neutral">{surfaceScenarios.length} scenarios</StatusBadge>
+          </div>
+          {surfaceScenarios.map((scenario) => {
+            const Icon = scenario.icon;
+            const isActive = scenario.id === activeScenario.id;
             return (
               <button
-                key={family.id}
+                key={scenario.id}
                 type="button"
-                className={isActive ? 'recipe-browser__family recipe-browser__family--active' : 'recipe-browser__family'}
-                onClick={() => pickFamily(family.id)}
+                className={isActive ? 'recipe-system__scenario recipe-system__scenario--active' : 'recipe-system__scenario'}
+                onClick={() => pickScenario(scenario)}
                 aria-current={isActive ? 'page' : undefined}
               >
-                <span className="recipe-browser__family-icon" aria-hidden="true">
+                <span className="recipe-system__scenario-icon" aria-hidden="true">
                   <Icon size={14} />
                 </span>
-                <span className="recipe-browser__family-text">
-                  <strong>{family.label}</strong>
-                  <span>{family.description}</span>
+                <span className="recipe-system__scenario-text">
+                  <strong>{scenario.title}</strong>
+                  <span>{scenario.workflow}</span>
                 </span>
-                <span className="recipe-browser__family-count">{count}</span>
+                <span className="recipe-system__scenario-count">{scenario.primitives.length}</span>
               </button>
             );
           })}
         </nav>
-        <div className="recipe-browser__list" aria-label={`${activeFamily.label} recipes`}>
-          <p className="eyebrow">{activeFamily.label}</p>
-          <ul>
-            {familyRecipes.map((item) => {
-              const isActive = item.id === recipe?.id;
-              return (
-                <li key={item.id}>
-                  <button
-                    type="button"
-                    className={isActive ? 'recipe-browser__row recipe-browser__row--active' : 'recipe-browser__row'}
-                    onClick={() => setRecipeId(item.id)}
-                  >
-                    <span>{item.name}</span>
-                    <ArrowRight size={12} aria-hidden="true" />
-                  </button>
+        <article className="recipe-composer" aria-label={`${activeScenario.title} recipe`}>
+          <header className="recipe-composer__head">
+            <div>
+              <p className="eyebrow">Recipe Composer / Preview</p>
+              <h3>{activeScenario.title}</h3>
+              <p>{activeScenario.intent}</p>
+            </div>
+            <StatusBadge tone={stateTone(variant)} shape="dot">{stateLabel(variant)}</StatusBadge>
+          </header>
+          <div className="recipe-composer__states">
+            <SegmentedControl
+              items={activeScenario.states.map((state) => ({ value: state, label: stateLabel(state) }))}
+              value={variant}
+              onValueChange={(next) => setVariant(next as RecipeState)}
+              ariaLabel="Recipe state variants"
+              size="sm"
+            />
+          </div>
+          <div className="recipe-composer__preview">
+            <RecipeScenarioPreview scenario={activeScenario} state={variant} />
+          </div>
+          <section className="recipe-composer__steps" aria-label="Composition steps">
+            <div className="recipe-composer__section-head">
+              <p className="eyebrow">Composition steps</p>
+              <StatusBadge tone="neutral">{activeScenario.primitives.length} primitives</StatusBadge>
+            </div>
+            <ol>
+              {activeScenario.steps.map((step, index) => (
+                <li key={step}>
+                  <span>{index + 1}</span>
+                  <strong>{step}</strong>
                 </li>
-              );
-            })}
-          </ul>
-        </div>
-        <div className="recipe-browser__detail">
-          {recipe ? <RecipeView recipe={recipe} /> : null}
-        </div>
+              ))}
+            </ol>
+          </section>
+        </article>
+        <aside className="recipe-contract" aria-label="Contract and imports">
+          <div className="recipe-contract__head">
+            <p className="eyebrow">Contract & Imports</p>
+            <h3>{activeScenario.workflow}</h3>
+          </div>
+          <section>
+            <p className="recipe-contract__label">Allowed imports</p>
+            <ul className="recipe-contract__imports">
+              {activeScenario.imports.map((line) => (
+                <li key={line}><code>{line}</code></li>
+              ))}
+            </ul>
+          </section>
+          <section>
+            <p className="recipe-contract__label">Boundary rules</p>
+            <ul className="recipe-contract__rules">
+              {activeScenario.boundaries.map((rule) => (
+                <li key={rule}>
+                  <ShieldCheck size={13} aria-hidden="true" />
+                  <span>{rule}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section>
+            <p className="recipe-contract__label">Use in workflow</p>
+            <div className="recipe-contract__links">
+              {activeScenario.workflowLinks.map((link) => (
+                <button
+                  key={link.section}
+                  type="button"
+                  className="recipe-contract__link"
+                  onClick={() => onOpenSection?.(link.section)}
+                >
+                  <span>
+                    <strong>{link.label}</strong>
+                    <small>{link.note}</small>
+                  </span>
+                  <ArrowRight size={13} aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          </section>
+        </aside>
       </div>
+      <PrimitiveIndexStrip activeFamilyId={familyId} onSelectFamily={setFamilyId} />
     </section>
   );
 }
