@@ -14,6 +14,7 @@ import {
   type TesterCapabilityRunResult,
   type TesterRuntimeInspection,
 } from '../tester-runtime.js';
+import type { TesterTypedOutput, TesterTypedSuccess } from '../tester-runtime-invokers.js';
 import {
   openWorldTourWindow,
   resolveWorldTourFixture,
@@ -56,10 +57,10 @@ const DEFAULT_PRESETS: Record<string, ScenarioPreset[]> = {
     { id: 'as-line', label: 'Synth single line', prompt: 'Synthesize a short Runtime acceptance sentence.', intent: 'Voice asset readiness probe.' },
   ],
   'audio.transcribe': [
-    { id: 'at-line', label: 'Transcribe single line', prompt: 'Transcribe a short Runtime acceptance recording.', intent: 'Transcript diagnostics probe.' },
+    { id: 'at-url', label: 'Transcribe URL', prompt: 'https://example.test/sample.wav', intent: 'Paste a real http(s):// or file:// audio asset URL — Runtime fetches and transcribes it.' },
   ],
   'speech.bundle': [
-    { id: 'sb-bundle', label: 'Bundle readiness', prompt: 'Validate voice clone, voice design, synthesis, and transcription surfaces.', intent: 'Voice bundle pairing probe.' },
+    { id: 'sb-bundle', label: 'Voice catalog probe', prompt: 'List voices via runtime.media.tts.listVoices.', intent: 'No prompt needed — exercises the voice catalog readiness path.' },
   ],
   'world.generate': [
     { id: 'wg-fixture', label: 'Fixture probe', prompt: 'Resolve the world-tour fixture and open the standalone viewer.', intent: 'Standalone tauri viewer launch.' },
@@ -116,6 +117,94 @@ function consoleLine(result: TesterCapabilityRunResult | null): string {
   return `> ${result.capabilityId} :: ${result.reason} — ${result.message}`;
 }
 
+function formatTrace(trace: TesterTypedSuccess['trace']): string | null {
+  if (!trace) return null;
+  const parts: string[] = [];
+  if (trace.modelResolved) parts.push(`model=${trace.modelResolved}`);
+  if (trace.routeDecision) parts.push(`route=${trace.routeDecision}`);
+  if (trace.traceId) parts.push(`traceId=${trace.traceId.slice(0, 12)}…`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+function TypedOutputBlock({ output }: { output: TesterTypedOutput }) {
+  if (output.kind === 'text') {
+    return (
+      <div className="typed-output typed-output--text">
+        <div className="typed-output__meta">
+          <span><strong>finishReason</strong> {output.finishReason}</span>
+          {typeof output.inputTokens === 'number' ? <span><strong>input</strong> {output.inputTokens}</span> : null}
+          {typeof output.outputTokens === 'number' ? <span><strong>output</strong> {output.outputTokens}</span> : null}
+          {typeof output.totalTokens === 'number' ? <span><strong>total</strong> {output.totalTokens}</span> : null}
+          <span className="typed-output__chip">{output.streamed ? 'streamed' : 'single-shot'}</span>
+        </div>
+        <pre className="typed-output__body">{output.text || '(empty body)'}</pre>
+      </div>
+    );
+  }
+  if (output.kind === 'embedding') {
+    return (
+      <div className="typed-output typed-output--embedding">
+        <div className="typed-output__meta">
+          <span><strong>vectors</strong> {output.vectorCount}</span>
+          <span><strong>dim</strong> {output.dimensions}</span>
+          {typeof output.totalTokens === 'number' ? <span><strong>tokens</strong> {output.totalTokens}</span> : null}
+        </div>
+        <pre className="typed-output__body">{output.sample.length > 0 ? `[${output.sample.map((value) => value.toFixed(4)).join(', ')}${output.dimensions > output.sample.length ? ', …' : ''}]` : '(empty vector)'}</pre>
+      </div>
+    );
+  }
+  if (output.kind === 'artifacts') {
+    return (
+      <div className="typed-output typed-output--artifacts">
+        <div className="typed-output__meta">
+          <span><strong>job</strong> {output.jobId || '(no job id)'}</span>
+          <span><strong>state</strong> {output.jobState}</span>
+          <span><strong>artifacts</strong> {output.artifactCount}</span>
+        </div>
+        {output.firstArtifact ? (
+          <pre className="typed-output__body">{JSON.stringify(output.firstArtifact, null, 2)}</pre>
+        ) : (
+          <p className="typed-output__note">No artifact metadata returned by Runtime.</p>
+        )}
+      </div>
+    );
+  }
+  if (output.kind === 'transcript') {
+    return (
+      <div className="typed-output typed-output--text">
+        <div className="typed-output__meta">
+          <span><strong>job</strong> {output.jobId || '(no job id)'}</span>
+          <span><strong>state</strong> {output.jobState}</span>
+          <span><strong>artifacts</strong> {output.artifactCount}</span>
+        </div>
+        <pre className="typed-output__body">{output.text || '(empty transcript)'}</pre>
+      </div>
+    );
+  }
+  // voice-catalog
+  return (
+    <div className="typed-output typed-output--voices">
+      <div className="typed-output__meta">
+        <span><strong>model</strong> {output.modelResolved}</span>
+        <span><strong>voices</strong> {output.voiceCount}</span>
+      </div>
+      {output.sample.length > 0 ? (
+        <ul className="typed-output__list">
+          {output.sample.map((voice) => (
+            <li key={voice.voiceId}>
+              <code>{voice.voiceId}</code>
+              <span>{voice.name}</span>
+              <span>{voice.lang}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="typed-output__note">Runtime returned an empty voice catalog.</p>
+      )}
+    </div>
+  );
+}
+
 export function ScenarioPipeline({ capability, runtime, lastResult, onResult, onConsole }: ScenarioPipelineProps) {
   const presets = DEFAULT_PRESETS[capability.id] || [{ id: 'default', label: 'Default scenario', prompt: capability.summary, intent: 'Workbench default probe.' }];
   const [scenarioId, setScenarioId] = useState(presets[0].id);
@@ -156,16 +245,19 @@ export function ScenarioPipeline({ capability, runtime, lastResult, onResult, on
         const result: TesterCapabilityRunResult = {
           ok: true,
           capabilityId: capability.id,
+          capabilityLabel: capability.label,
           message: `Standalone viewer window opened with manifest ${fixture.manifestPath}.`,
-          runtime: {
-            status: runtime?.status === 'ready' ? 'ready' : 'unavailable',
-            mode: runtime?.mode || 'standalone',
-            detail: runtime?.detail || 'Standalone Tauri execution does not require runtime session readiness.',
+          output: {
+            kind: 'artifacts',
+            jobId: opened.windowLabel,
+            jobState: 'window-opened',
+            artifactCount: 1,
+            firstArtifact: { displayName: fixture.manifestPath, mimeType: 'application/x-nimi-world-manifest' },
           },
         };
         await onResult(result, prompt);
       } else {
-        const result = await runTesterCapability({ capabilityId: capability.id, prompt });
+        const result = await runTesterCapability({ capabilityId: capability.id, prompt, scenarioId });
         await onResult(result, prompt);
       }
     } catch (error) {
@@ -282,6 +374,17 @@ export function ScenarioPipeline({ capability, runtime, lastResult, onResult, on
             <p className="scenario-pipeline__console-hint">{lastResult.actionHint}</p>
           ) : null}
         </Surface>
+        {lastResult && lastResult.ok ? (
+          <Surface className="scenario-pipeline__output" material="glass-thin" tone="card" elevation="base">
+            <div className="scenario-pipeline__output-head">
+              <p className="eyebrow">Typed output</p>
+              {formatTrace(lastResult.trace) ? (
+                <span className="scenario-pipeline__trace">{formatTrace(lastResult.trace)}</span>
+              ) : null}
+            </div>
+            <TypedOutputBlock output={lastResult.output} />
+          </Surface>
+        ) : null}
         {worldMessage ? (
           <InlineAlert tone={worldFixture ? 'success' : 'warning'} icon={worldFixture ? undefined : <AlertTriangle size={14} />}>
             <div className="runtime-alert-copy">
