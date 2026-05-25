@@ -4,7 +4,7 @@ import type { TesterCapabilityId } from './tester-capabilities.js';
 export type TesterImageHistoryRecord = {
   id: string;
   runId?: string;
-  kind: 'runtime-media';
+  kind?: 'runtime-media';
   capabilityId: TesterCapabilityId | string;
   capabilityLabel?: string;
   title: string;
@@ -24,7 +24,6 @@ export type TesterImageHistoryRecord = {
 function normalizeRecord(record: TesterImageHistoryRecord): TesterImageHistoryRecord {
   return {
     ...record,
-    kind: record.kind || 'runtime-media',
     runId: record.runId || record.id,
     traceState: record.traceState || 'not-captured',
   };

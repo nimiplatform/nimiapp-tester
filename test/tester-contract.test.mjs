@@ -144,20 +144,22 @@ test('tester Artifacts page is a real artifact inventory', () => {
     'World Tour local fixture is not runtime artifact',
     'World Tour local fixture lives outside runtime artifact inventory',
     'No placeholder media is created here',
+    'legacy/unknown stored record',
+    'not captured / unknown from stored record',
     'Open Runs',
   ]) {
     assert.match(sectionArtifacts, new RegExp(requiredCopy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   }
 
   assert.match(imageHistory, /runId\?: string/);
-  assert.match(imageHistory, /kind: 'runtime-media'/);
+  assert.match(imageHistory, /kind\?: 'runtime-media'/);
   assert.match(imageHistory, /artifactCount\?: number/);
   assert.match(imageHistory, /traceState\?: 'captured' \| 'not-captured'/);
   assert.match(imageHistory, /records\.slice\(0, 80\)/);
-  assert.match(workbench, /result\.output\.kind === 'artifacts'/);
-  assert.match(workbench, /result\.output\.artifactCount > 0/);
-  assert.match(workbench, /result\.capabilityId !== 'world\.generate'/);
+  assert.match(workbench, /shouldPersistTesterArtifactRecord\(result\)/);
   assert.match(workbench, /appendTesterImageHistoryRecord/);
+  assert.doesNotMatch(imageHistory, /kind: record\.kind \|\| 'runtime-media'/);
+  assert.doesNotMatch(sectionArtifacts, /artifactCount \|\| 1/);
   assert.doesNotMatch(sectionArtifacts, /fake thumbnail/i);
 });
 

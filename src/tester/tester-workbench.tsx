@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import './tester-workbench.css';
 import { getTesterCapability, type TesterCapabilityId } from './tester-capabilities.js';
+import { shouldPersistTesterArtifactRecord } from './tester-artifact-persistence.js';
 import { appendTesterRunHistory, loadTesterRunHistory, type TesterRunHistory } from './tester-history.js';
 import { appendTesterImageHistoryRecord } from './tester-image-history.js';
 import { loadTesterAIConfigSummary, type TesterAIConfigSummary } from './tester-ai-config.js';
@@ -94,12 +95,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
         });
         setHistory(next);
         setHistoryError(null);
-        if (
-          result.ok
-          && result.output.kind === 'artifacts'
-          && result.output.artifactCount > 0
-          && result.capabilityId !== 'world.generate'
-        ) {
+        if (shouldPersistTesterArtifactRecord(result)) {
           const firstArtifact = result.output.firstArtifact;
           await appendTesterImageHistoryRecord({
             id: runId,

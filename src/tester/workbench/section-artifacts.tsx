@@ -77,7 +77,20 @@ function artifactLabel(record: TesterImageHistoryRecord): string {
   return record.artifactLabel || record.title || record.jobId || 'Runtime media artifact';
 }
 
+function storedArtifactCount(record: TesterImageHistoryRecord): number | null {
+  if (record.kind !== 'runtime-media') return null;
+  if (typeof record.artifactCount !== 'number') return null;
+  if (!Number.isFinite(record.artifactCount) || record.artifactCount <= 0) return null;
+  return record.artifactCount;
+}
+
+function isConfirmedRuntimeMediaArtifact(record: TesterImageHistoryRecord): boolean {
+  return record.kind === 'runtime-media' && record.status === 'ready' && storedArtifactCount(record) !== null;
+}
+
 function artifactKindLabel(record: TesterImageHistoryRecord): string {
+  if (record.kind !== 'runtime-media') return 'legacy/unknown stored record';
+  if (storedArtifactCount(record) === null) return 'unknown from stored record';
   if (record.mimeType) return record.mimeType;
   if (record.capabilityId === 'image.generate') return 'image artifact';
   if (record.capabilityId === 'video.generate') return 'video artifact';
@@ -87,7 +100,7 @@ function artifactKindLabel(record: TesterImageHistoryRecord): string {
 
 function filterArtifact(record: TesterImageHistoryRecord, filter: ArtifactFilter): boolean {
   if (filter === 'all') return true;
-  if (filter === 'runtime-media') return record.kind === 'runtime-media' && record.status === 'ready';
+  if (filter === 'runtime-media') return isConfirmedRuntimeMediaArtifact(record);
   if (filter === 'unavailable') return record.status === 'unavailable' || record.status === 'failed';
   if (filter === 'local-fixtures') return false;
   if (filter === 'speech') return record.capabilityId === 'audio.synthesize' || record.capabilityId === 'speech.bundle';
@@ -96,13 +109,28 @@ function filterArtifact(record: TesterImageHistoryRecord, filter: ArtifactFilter
 
 function countCoverage(records: TesterImageHistoryRecord[], capabilityIds: string[]): number {
   if (capabilityIds.includes('world.generate')) return 0;
-  return records.filter((record) => capabilityIds.includes(record.capabilityId)).length;
+  return records.filter((record) => capabilityIds.includes(record.capabilityId) && isConfirmedRuntimeMediaArtifact(record)).length;
 }
 
 function runtimeResult(record: TesterImageHistoryRecord | null): string {
   if (!record) return 'no selected record';
+  if (!record.kind) return 'legacy/unknown stored record';
   if (record.kind !== 'runtime-media') return 'not runtime artifact';
+  if (storedArtifactCount(record) === null) return `${record.status}; artifact metadata incomplete`;
   return record.status;
+}
+
+function artifactCountTypeLabel(record: TesterImageHistoryRecord | null): string {
+  if (!record) return 'none';
+  const count = storedArtifactCount(record);
+  if (count === null) return 'not captured / unknown from stored record';
+  return `${count} / ${artifactKindLabel(record)}`;
+}
+
+function artifactRowMessage(record: TesterImageHistoryRecord): string {
+  if (record.message) return record.message;
+  if (isConfirmedRuntimeMediaArtifact(record)) return 'Runtime artifact record persisted.';
+  return 'Stored record is missing confirmed runtime artifact metadata.';
 }
 
 function traceState(record: TesterImageHistoryRecord | null): string {
@@ -140,8 +168,8 @@ export function SectionArtifacts({ onOpenSection }: SectionArtifactsProps) {
   const records = state.kind === 'ready' ? state.records : [];
   const filteredRecords = useMemo(() => records.filter((record) => filterArtifact(record, filter)), [records, filter]);
   const selectedRecord = filteredRecords.find((record) => record.id === selectedRecordId) ?? filteredRecords[0] ?? null;
-  const totalArtifactCount = records.reduce((total, record) => total + (record.artifactCount || 0), 0);
-  const runtimeMediaCount = records.filter((record) => record.kind === 'runtime-media' && record.status === 'ready').length;
+  const totalArtifactCount = records.reduce((total, record) => total + (storedArtifactCount(record) || 0), 0);
+  const runtimeMediaCount = records.filter(isConfirmedRuntimeMediaArtifact).length;
   const traceCapturedCount = records.filter((record) => record.traceState === 'captured').length;
   const traceLabel = traceCapturedCount > 0 ? `trace captured: ${traceCapturedCount}` : 'trace not captured';
   const filterItems = [
@@ -257,11 +285,11 @@ export function SectionArtifacts({ onOpenSection }: SectionArtifactsProps) {
                     <div className="artifacts-inventory-row__main">
                       <strong>{artifactLabel(record)}</strong>
                       <span>{getCapabilityLabel(record.capabilityId, record.capabilityLabel)} · run {record.runId || record.id}</span>
-                      <small>{record.message || 'Runtime artifact record persisted.'}</small>
+                      <small>{artifactRowMessage(record)}</small>
                     </div>
                     <div className="artifacts-inventory-row__meta">
                       <StatusBadge tone={statusTone(record.status)} shape="dot">{runtimeResult(record)}</StatusBadge>
-                      <span>{record.artifactCount || 1} · {artifactKindLabel(record)}</span>
+                      <span>{artifactCountTypeLabel(record)}</span>
                       <time dateTime={record.createdAt}>{formatTesterRunTimestamp(record.createdAt)}</time>
                     </div>
                   </button>
@@ -298,7 +326,7 @@ export function SectionArtifacts({ onOpenSection }: SectionArtifactsProps) {
             </div>
             <div>
               <dt>Artifact count/type</dt>
-              <dd>{selectedRecord ? `${selectedRecord.artifactCount || 1} / ${artifactKindLabel(selectedRecord)}` : 'none'}</dd>
+              <dd>{artifactCountTypeLabel(selectedRecord)}</dd>
             </div>
             <div>
               <dt>MIME</dt>
