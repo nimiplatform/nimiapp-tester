@@ -1,0 +1,397 @@
+{
+  "lockVersion": 1,
+  "scaffoldVersion": "2026-05-24.wave-4-remediation-b",
+  "profile": "standalone",
+  "appId": "nimi.tester",
+  "appTitle": "Nimi Tester",
+  "packageName": "nimiapp-tester",
+  "packageAuthor": null,
+  "cargoPackageName": "nimiapp-tester-shell",
+  "tauriIdentifier": "ai.nimi.apps.nimi.tester",
+  "appIdentity": {
+    "appId": "nimi.tester",
+    "appTitle": "Nimi Tester",
+    "npmPackageName": "nimiapp-tester",
+    "packageAuthor": null,
+    "cargoPackageName": "nimiapp-tester-shell",
+    "tauriIdentifier": "ai.nimi.apps.nimi.tester",
+    "identityRole": "scaffold-generated-authoring-input"
+  },
+  "managedFileTaxonomy": {
+    "packageOwnedProjection": [],
+    "scaffoldManagedGlue": [
+      ".github/workflows/ci.yml",
+      ".gitignore",
+      ".nimi/admission/build-profile.yaml",
+      ".nimi/admission/submission.yaml",
+      ".nimi/app-scaffold/intent.json",
+      "ADMISSION.md",
+      "AGENTS.md",
+      "index.html",
+      "LICENSE",
+      "nimi.app.yaml",
+      "package.json",
+      "README.md",
+      "scripts/dev-shell.mjs",
+      "scripts/local-audit.mjs",
+      "scripts/pack.mjs",
+      "scripts/validate.mjs",
+      "SECURITY.md",
+      "src-tauri/build.rs",
+      "src-tauri/Cargo.toml",
+      "src-tauri/icons/icon.png",
+      "src-tauri/src/main.rs",
+      "src-tauri/tauri.conf.json",
+      "src/main.tsx",
+      "src/shell/App.tsx",
+      "src/shell/auth/auth-gate.tsx",
+      "src/shell/auth/auth-i18n.ts",
+      "src/shell/auth/runtime-account-auth.ts",
+      "src/shell/auth/runtime-login-page.tsx",
+      "src/shell/auth/runtime-platform.ts",
+      "src/shell/auth/runtime-unavailable-page.tsx",
+      "src/shell/authenticated-shell.tsx",
+      "src/shell/routes/demo-surfaces.tsx",
+      "src/shell/routes/settings.tsx",
+      "src/styles.css",
+      "test/scaffold-boundary.test.mjs",
+      "tsconfig.json",
+      "vite.config.ts"
+    ],
+    "appOwnedProductCode": [
+      "src-tauri/src/tester_storage.rs",
+      "src-tauri/src/world_tour.rs",
+      "src/shell/routes/product-area.tsx",
+      "src/tester/kit-component-gallery.tsx",
+      "src/tester/panels/audio-panel.tsx",
+      "src/tester/panels/chat-panel.tsx",
+      "src/tester/panels/image-panel.tsx",
+      "src/tester/panels/panel-shared.tsx",
+      "src/tester/panels/speech-bundle-panel.tsx",
+      "src/tester/panels/text-embed-panel.tsx",
+      "src/tester/panels/text-generate-panel.tsx",
+      "src/tester/panels/video-panel.tsx",
+      "src/tester/panels/world-tour-panel.tsx",
+      "src/tester/tester-ai-config.ts",
+      "src/tester/tester-capabilities.ts",
+      "src/tester/tester-history.ts",
+      "src/tester/tester-image-history.ts",
+      "src/tester/tester-runtime.ts",
+      "src/tester/tester-tauri.ts",
+      "src/tester/tester-test-ids.ts",
+      "src/tester/tester-unavailable.ts",
+      "src/tester/tester-workbench.tsx",
+      "src/tester/world-tour/world-tour-shared.ts",
+      "src/tester/world-tour/world-tour-viewer-canvas.tsx",
+      "src/tester/world-tour/world-tour-viewer-route.tsx",
+      "test/tester-contract.test.mjs",
+      "test/world-tour-contract.test.mjs"
+    ]
+  },
+  "managedFileHashes": {
+    "package.json": {
+      "class": "scaffold-managed glue",
+      "sha256": "dea878285e393a95b33bca34b3734c3cfa1796cc5d38b5c3d61a2f31720203d4"
+    },
+    "src-tauri/icons/icon.png": {
+      "class": "scaffold-managed glue",
+      "sha256": "43739c566e26fd7cb88f69d3864ea34740372f5ee99acac169e090beffbce5c6"
+    },
+    ".github/workflows/ci.yml": {
+      "class": "scaffold-managed glue",
+      "sha256": "5e954b520b8eada911b530f2d4f2411045c5920eff888161ee974a949f59d288"
+    },
+    ".gitignore": {
+      "class": "scaffold-managed glue",
+      "sha256": "49ae980426dbe942734dcbe9ea288f45ef9d6396ca90cd2b9f13d7e2bc527e5e"
+    },
+    "ADMISSION.md": {
+      "class": "scaffold-managed glue",
+      "sha256": "c92fbf76a947f70069b3fd2eb9584938317d24cdd59eee6647208ee7010b94e0"
+    },
+    "AGENTS.md": {
+      "class": "scaffold-managed glue",
+      "sha256": "ec690fac0c138168e5ce1fa56e243a2899272f78fde3aea0d44a197bd7d183d4"
+    },
+    "index.html": {
+      "class": "scaffold-managed glue",
+      "sha256": "1b57eb7fbf76c9d830389e5dfa69e534921134f045e78432a9c5692ba3b52368"
+    },
+    "LICENSE": {
+      "class": "scaffold-managed glue",
+      "sha256": "9da843f6ba2a3d93ec8fe79b010bc865808456e2429c9c9b9565cc1bc8f3eb3b"
+    },
+    "nimi.app.yaml": {
+      "class": "scaffold-managed glue",
+      "sha256": "905072ed01e6ac2033718a025c65012838d5702101b9159407d8ffe823b2d6ce"
+    },
+    "README.md": {
+      "class": "scaffold-managed glue",
+      "sha256": "96438104276db384f1adb302d1fcd2ea8cb2ae1845e8c4b6fefd4f073b968bd3"
+    },
+    "scripts/dev-shell.mjs": {
+      "class": "scaffold-managed glue",
+      "sha256": "891fd6918b57fb076be777c203a5e0c537fae2cac887ce829e9d359abfd8edf4"
+    },
+    "scripts/local-audit.mjs": {
+      "class": "scaffold-managed glue",
+      "sha256": "aeb3223d43f790c4ec6d56f7a7222dbcd118fd8f82e7d30f59fc16433b05e6de"
+    },
+    "scripts/pack.mjs": {
+      "class": "scaffold-managed glue",
+      "sha256": "8a4f885912aed81deca55029ecf661b518eee92d5aa28a4caebe3e90d84d84f4"
+    },
+    "scripts/validate.mjs": {
+      "class": "scaffold-managed glue",
+      "sha256": "0b74889fac4718154fd87ac9590af64594c73f3463e66ae0c8628e07953357c5"
+    },
+    "SECURITY.md": {
+      "class": "scaffold-managed glue",
+      "sha256": "070ecdd6be44ca13376d0c398a699c4daa776ec2418e42820982085666b7ee2f"
+    },
+    "src-tauri/build.rs": {
+      "class": "scaffold-managed glue",
+      "sha256": "6aeeab41bc35efde4e3c2b644a6248f7fc06d24ae30b75c0d33491cbb0c1fa31"
+    },
+    "src-tauri/Cargo.toml": {
+      "class": "scaffold-managed glue",
+      "sha256": "1270d85bbf66928c9e185a5f752e609afe2e009ff4e804fcd74d3037fa3d6f27"
+    },
+    "src-tauri/src/main.rs": {
+      "class": "scaffold-managed glue",
+      "sha256": "da010d8e9f1a96e7376726bafbc29bff2681890e81e7ac827590c73c4d9d4247"
+    },
+    "src-tauri/tauri.conf.json": {
+      "class": "scaffold-managed glue",
+      "sha256": "8b03dcebb81a3110b7f9165b48f0d4e4bac999f094d57d6d0a15bda011451cf9"
+    },
+    "src/main.tsx": {
+      "class": "scaffold-managed glue",
+      "sha256": "200510e097aa7429bc7c731bcbbb6123bac4cc3e801ddd4923b7207259b1d93d"
+    },
+    "src/shell/App.tsx": {
+      "class": "scaffold-managed glue",
+      "sha256": "a798b17f878b0c9a0553b1d61d52bffb7699c4c10a8d9c7c85fbd839378da6e5"
+    },
+    "src/shell/auth/auth-gate.tsx": {
+      "class": "scaffold-managed glue",
+      "sha256": "0d4e13c2bbbf4b3f6c4e6ec58c5cfb62df516678e624307e45beed018841e3c7"
+    },
+    "src/shell/auth/auth-i18n.ts": {
+      "class": "scaffold-managed glue",
+      "sha256": "c319f600c036072863509682574be99fc6ca3c861a814089d08d5208d1b72fdf"
+    },
+    "src/shell/auth/runtime-account-auth.ts": {
+      "class": "scaffold-managed glue",
+      "sha256": "fe1c419bd1cb0e481047124206d49f0f857e89e00076b87b199ce02d1038cdc5"
+    },
+    "src/shell/auth/runtime-login-page.tsx": {
+      "class": "scaffold-managed glue",
+      "sha256": "85eb6a7475192b44912f08005e94c925c1101b2ae85ab69834ef2933ceffa988"
+    },
+    "src/shell/auth/runtime-platform.ts": {
+      "class": "scaffold-managed glue",
+      "sha256": "1c3e8442af025db720f4d76d32eb2a7cd1bf1e93d3d22a380e50049aa0bf7646"
+    },
+    "src/shell/auth/runtime-unavailable-page.tsx": {
+      "class": "scaffold-managed glue",
+      "sha256": "5ea8cad7af0854f160fae9ad37e3c9c99b8eddaa60365bc25bc3b9a1e71cdaa0"
+    },
+    "src/shell/authenticated-shell.tsx": {
+      "class": "scaffold-managed glue",
+      "sha256": "b450bc213246ebe1c66047ecb00586a0b950d0d7c5cf305f4bdd9ba029a6d04f"
+    },
+    "src/shell/routes/demo-surfaces.tsx": {
+      "class": "scaffold-managed glue",
+      "sha256": "0b7630de369ef192a9ac0e324f71091fa4fd459956b700f3b5b4419c06a7f259"
+    },
+    "src/shell/routes/settings.tsx": {
+      "class": "scaffold-managed glue",
+      "sha256": "6e55b5381408f6b4a9a0de85d6e132972b4a1fb08d9e6bf62f3a512db254fc30"
+    },
+    "src/styles.css": {
+      "class": "scaffold-managed glue",
+      "sha256": "ec6a2624a8247f1847df94ef2cd08a59dc551f6dcb70bd13e38f9b3f5c75764f"
+    },
+    "test/scaffold-boundary.test.mjs": {
+      "class": "scaffold-managed glue",
+      "sha256": "2d84a9a4f55d0f5506d9aeab3bd5739e6e9cf24a3492c95191b411aa8eae1c55"
+    },
+    "tsconfig.json": {
+      "class": "scaffold-managed glue",
+      "sha256": "7f250f2ae99ba0a4ce89f7174a44a221af875d9e3b13c52f2af6420dbb4d07f4"
+    },
+    "vite.config.ts": {
+      "class": "scaffold-managed glue",
+      "sha256": "d9b98d7664e4205ab8d304e8388573bde6e4e49bc6a0f562a37afcbf8febd4c2"
+    },
+    ".nimi/app-scaffold/intent.json": {
+      "class": "scaffold-managed glue",
+      "sha256": "d20ee9a3406113776d79253da946fa30a966c6a4ef23ffd7202a86ec97af8c7c"
+    },
+    ".nimi/admission/submission.yaml": {
+      "class": "scaffold-managed glue",
+      "sha256": "f19c41d281fc6bf22fde7c49e7b0b1b5e16f3c71af4e991106c66f00e488e73a"
+    },
+    ".nimi/admission/build-profile.yaml": {
+      "class": "scaffold-managed glue",
+      "sha256": "88e019ae3eee22f50d597be68c3c2e9b75aeb15828fc6442c2db99decea6490d"
+    }
+  },
+  "appOwnedInitialHashes": {
+    "src-tauri/src/tester_storage.rs": {
+      "class": "app-owned product code",
+      "sha256": "10b2ade0c0f637cae5d93643f41b1d9c59f883f3d91535017feabd39f92a9f58"
+    },
+    "src-tauri/src/world_tour.rs": {
+      "class": "app-owned product code",
+      "sha256": "f8fd3e9c09584649dabeb5c2432085fe6a2d33c3c37b5db9cb9b15d022dfdc53"
+    },
+    "src/shell/routes/product-area.tsx": {
+      "class": "app-owned product code",
+      "sha256": "bb6986ed2083edb222e37941b4e9797fcf70e17a6b6f1820cc9fcb08b008816c"
+    },
+    "src/tester/kit-component-gallery.tsx": {
+      "class": "app-owned product code",
+      "sha256": "703781d49858285b24109fbe25f8a34f10983dba42978ce664f3bd1652a90d64"
+    },
+    "src/tester/panels/audio-panel.tsx": {
+      "class": "app-owned product code",
+      "sha256": "7a5f570ecc50f80981f8b932bc9aa3186fad58061b5e1a46655fc9b636bef8f2"
+    },
+    "src/tester/panels/chat-panel.tsx": {
+      "class": "app-owned product code",
+      "sha256": "b4521d168d7762da7d349e7aa788802ec82f3271afe19463151c9af11095b847"
+    },
+    "src/tester/panels/image-panel.tsx": {
+      "class": "app-owned product code",
+      "sha256": "dcb54a125a1b6a79b5149ccc12f50cafa4ba825db4e737d1f19e13ca5f2dd44d"
+    },
+    "src/tester/panels/panel-shared.tsx": {
+      "class": "app-owned product code",
+      "sha256": "75f00282aee8cb079f210d099fa0090cf4c6edc29c89602fd3e7ff379bb5f6d9"
+    },
+    "src/tester/panels/speech-bundle-panel.tsx": {
+      "class": "app-owned product code",
+      "sha256": "d6f3bbdd1d93060238d7ce7cd56de1e76bebb91c49b34c314ded5ba0673487c6"
+    },
+    "src/tester/panels/text-embed-panel.tsx": {
+      "class": "app-owned product code",
+      "sha256": "ac709eee29645f674e3ad3cac582f5608adfcb4b886ebce6866c4349b446bab3"
+    },
+    "src/tester/panels/text-generate-panel.tsx": {
+      "class": "app-owned product code",
+      "sha256": "4b2600802f2c4fe7aeec94d6241e998e0f525daf3d63ea445dd2facbf931271f"
+    },
+    "src/tester/panels/video-panel.tsx": {
+      "class": "app-owned product code",
+      "sha256": "4a0d8c9f0c1861b1fdebd7cc74e805f068e25033b711d007c628c5d1f1b72356"
+    },
+    "src/tester/panels/world-tour-panel.tsx": {
+      "class": "app-owned product code",
+      "sha256": "486608d503ed5cc51c26ed26cbb8b74df0f2d9caa23f99a473097e3fd76a0580"
+    },
+    "src/tester/tester-ai-config.ts": {
+      "class": "app-owned product code",
+      "sha256": "92e503e3bd1cb0c05896d296b10e507b8210c4f7bd82b4ebabf867036ffd6009"
+    },
+    "src/tester/tester-capabilities.ts": {
+      "class": "app-owned product code",
+      "sha256": "b518caba0fccd3af6a522954a1bc5b4c8e7cc8f50530d997785d780c89bf337b"
+    },
+    "src/tester/tester-history.ts": {
+      "class": "app-owned product code",
+      "sha256": "b8f0f8b3a7347e9d30f8ef58e74d68d3a64589013170e0d8fcc4d1fb1c13dfef"
+    },
+    "src/tester/tester-image-history.ts": {
+      "class": "app-owned product code",
+      "sha256": "879352fd3dab15b0e35db38a14486dbae295ac85d3e23a806e1297e25be6abe5"
+    },
+    "src/tester/tester-runtime.ts": {
+      "class": "app-owned product code",
+      "sha256": "154a04ca68639588c0631c7c4558a8ee88e5445b7c1db2288f8740aa03aa598c"
+    },
+    "src/tester/tester-tauri.ts": {
+      "class": "app-owned product code",
+      "sha256": "e435bf8b998f7751000488b12cdf3006fa4341989ffa2a5d44dff4404adb8ef8"
+    },
+    "src/tester/tester-test-ids.ts": {
+      "class": "app-owned product code",
+      "sha256": "58f088cd4cd5198dc6597ade7b7ef565bcb0c466530db96439f584a592f759d9"
+    },
+    "src/tester/tester-unavailable.ts": {
+      "class": "app-owned product code",
+      "sha256": "cdb55f65cc43a309368e10fab19895839da4c65c36dc2bbf330b2b430dd496b0"
+    },
+    "src/tester/tester-workbench.tsx": {
+      "class": "app-owned product code",
+      "sha256": "7e5a1b6efbc0e35ea8cd5e00dde87084ada83eab8780eaf6060b5d1b3142fd14"
+    },
+    "src/tester/world-tour/world-tour-shared.ts": {
+      "class": "app-owned product code",
+      "sha256": "f1c2eb162ceb1a8b5fd39d517bc320380d5e83b380ef759473f3c13ad641106b"
+    },
+    "src/tester/world-tour/world-tour-viewer-canvas.tsx": {
+      "class": "app-owned product code",
+      "sha256": "3a7c94f7d350f3c3f894463e9f9347c4b3049c35b74dc55e2af3f9f04786acbe"
+    },
+    "src/tester/world-tour/world-tour-viewer-route.tsx": {
+      "class": "app-owned product code",
+      "sha256": "3da62a3f2f616f22c8685f5476ab012843755847d5b9bbbda8f320628618cf69"
+    },
+    "test/tester-contract.test.mjs": {
+      "class": "app-owned product code",
+      "sha256": "1c4dc5d0b9243e249ef391c74b5e5eaef59e234a0ff8d2e013f64dd41915f7a5"
+    },
+    "test/world-tour-contract.test.mjs": {
+      "class": "app-owned product code",
+      "sha256": "06eec5b2182c5a3346721f1ea8894cb4b39e00b7f2d039250524fcfcf9b91746"
+    }
+  },
+  "dependencyMatrix": {
+    "npm": {
+      "@nimiplatform/app-tools": "^0.1.4",
+      "@nimiplatform/nimi-coding": "0.2.5",
+      "@nimiplatform/sdk": "^0.5.15",
+      "@nimiplatform/kit": "^0.1.0",
+      "@tauri-apps/api": "^2.9.1",
+      "i18next": "^25.8.18",
+      "lucide-react": "^0.577.0",
+      "react": "^19.1.0",
+      "react-dom": "^19.1.0",
+      "react-i18next": "^16.5.8",
+      "typescript": "^5.9.3",
+      "vite": "^7.2.4",
+      "tailwindcss": "^4.3.0",
+      "@tauri-apps/cli": "^2.11.2",
+      "@tailwindcss/vite": "^4.3.0",
+      "@types/three": "^0.184.1",
+      "@vitejs/plugin-react": "^5.1.1"
+    },
+    "cargo": {
+      "nimi-shell-tauri": "0.1.0",
+      "tauri": "2",
+      "tauri-build": "2"
+    },
+    "toolchain": {
+      "node": ">=20",
+      "pnpm": ">=9",
+      "rust": ">=1.80",
+      "tauri": "2"
+    }
+  },
+  "semantics": {
+    "initRole": "developer-scaffold-initialization-after-install",
+    "nimicodingProjectionOwner": "@nimiplatform/nimi-coding",
+    "nimicodingApplyCommand": "pnpm exec nimicoding sync --apply --json",
+    "nimicodingCheckCommand": "pnpm exec nimicoding sync --check --json",
+    "doctorAndUpdateRole": "developer-scaffold-check-only",
+    "publicAdmissionTruth": "not-generated",
+    "installedAppUpdateTruth": "not-generated",
+    "permissionGrantTruth": "not-generated",
+    "lockfilePolicy": "author-install-generates-lockfile",
+    "ignoredVerificationArtifacts": [
+      "dist/"
+    ]
+  }
+}
