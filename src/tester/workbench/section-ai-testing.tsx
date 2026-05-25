@@ -1,7 +1,7 @@
 import { InlineAlert, Surface } from '@nimiplatform/kit/ui';
-import { ScrollText, Terminal } from 'lucide-react';
-import { CapabilityMatrix } from './capability-matrix.js';
-import { CapabilityDetail } from './capability-detail.js';
+import { ScrollText } from 'lucide-react';
+import { LaneSelector } from './lane-selector.js';
+import { ScenarioPipeline } from './scenario-pipeline.js';
 import { RuntimeReadinessCard } from './runtime-readiness-card.js';
 import { RunsHistoryList } from './runs-history-list.js';
 import { KitSystemSummary } from './kit-system-summary.js';
@@ -22,14 +22,6 @@ type SectionAITestingProps = {
   onOpenKitComponents: () => void;
 };
 
-function consoleLine(result: TesterCapabilityRunResult | null): string {
-  if (!result) return '> idle — awaiting capability invocation.';
-  if (result.ok) {
-    return `> ${result.capabilityId} :: ready — ${result.message}`;
-  }
-  return `> ${result.capabilityId} :: ${result.reason} — ${result.message}`;
-}
-
 export function SectionAITesting({
   activeId,
   onSelect,
@@ -41,38 +33,33 @@ export function SectionAITesting({
   historyError,
   onOpenKitComponents,
 }: SectionAITestingProps) {
+  const runtime = summary?.runtime ?? null;
   return (
     <div className="section-ai-testing" data-testid="nimi-tester-section-ai-testing">
       <header className="section-header section-header--compact">
         <div>
           <p className="eyebrow">AI Testing Cockpit</p>
-          <h2>Capability lanes</h2>
-          <p>Each lane runs through real Runtime/SDK admission. Typed unavailable is surfaced inline as evidence — never faked.</p>
+          <h2>Lane → scenario → admission → run → evidence</h2>
+          <p>Pick a capability lane, edit the scenario, watch admission state, run, and read the typed result. No mock returns.</p>
         </div>
       </header>
 
       <div className="dual-core-grid">
         <div className="dual-core-grid__cockpit">
-          <CapabilityMatrix activeId={activeId} onSelect={onSelect} />
+          <div className="cockpit-pipeline-grid">
+            <LaneSelector activeId={activeId} onSelect={onSelect} />
+            <ScenarioPipeline
+              capability={capability}
+              runtime={runtime}
+              lastResult={lastResult}
+              onResult={onResult}
+            />
+          </div>
           <div className="cockpit-grid">
             <div className="cockpit-grid__primary">
-              <CapabilityDetail capability={capability} onResult={onResult} />
-              <Surface className="cockpit-console" material="glass-thin" tone="card" elevation="base">
-                <div className="cockpit-console__head">
-                  <div>
-                    <p className="eyebrow">Execution console</p>
-                    <h3>Last typed result</h3>
-                  </div>
-                  <Terminal size={15} aria-hidden="true" />
-                </div>
-                <pre className="cockpit-console__line">{consoleLine(lastResult)}</pre>
-                {lastResult && !lastResult.ok ? (
-                  <p className="cockpit-console__hint">{lastResult.actionHint}</p>
-                ) : null}
-              </Surface>
+              <RuntimeReadinessCard summary={summary} />
             </div>
             <div className="cockpit-grid__sidebar">
-              <RuntimeReadinessCard summary={summary} />
               <Surface className="cockpit-runs" material="glass-thin" tone="card" elevation="base">
                 <div className="cockpit-runs__head">
                   <div>
