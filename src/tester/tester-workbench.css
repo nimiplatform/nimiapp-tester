@@ -586,6 +586,7 @@ body:has(.workbench) {
 
 .app-lab-capability {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto auto minmax(136px, auto) auto auto minmax(150px, 1fr);
   overflow: hidden;
 }
@@ -643,6 +644,14 @@ body:has(.workbench) {
   gap: 8px;
 }
 
+.app-lab-capability__request textarea {
+  width: 100%;
+  min-width: 0;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
 .app-lab-request-meta {
   display: flex;
   flex-wrap: wrap;
@@ -692,9 +701,14 @@ body:has(.workbench) {
 
 .app-lab-action {
   display: grid;
-  grid-template-columns: minmax(180px, 1fr) auto auto;
+  grid-template-columns: minmax(220px, 1fr) auto auto;
   gap: 8px;
   align-items: center;
+}
+
+.app-lab-action > button:first-child {
+  min-width: 220px;
+  justify-content: center;
 }
 
 .app-lab-result-shell {

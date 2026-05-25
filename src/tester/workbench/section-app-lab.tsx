@@ -498,6 +498,7 @@ function CapabilityLab({
         <p className="app-lab-field-label">Request</p>
         <TextareaField
           rows={5}
+          wrap="soft"
           aria-label={`${capability.label} request`}
           value={prompt}
           onChange={(event) => setPrompt(event.currentTarget.value)}
