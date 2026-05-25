@@ -14,6 +14,8 @@ import type { TesterRunHistory } from '../tester-history.js';
 import {
   TESTER_PREFERENCES_SCHEMA_VERSION,
   TESTER_PREFERENCES_STORAGE_KEY,
+  TESTER_PROMPT_DRAFTS_SCHEMA_VERSION,
+  TESTER_PROMPT_DRAFTS_STORAGE_KEY,
   type TesterEvidenceCaptureMode,
   type TesterPreferences,
   type TesterPreferenceStoreStatus,
@@ -123,7 +125,7 @@ export function SectionSettings({
             <label className="settings-preference-row">
               <span>
                 <strong>Persist request drafts</strong>
-                <small>Stored preference for app-owned prompt editor surfaces; it does not modify Runtime state.</small>
+                <small>When enabled, App Lab and AI Capabilities save prompt edits per capability and scenario in localStorage.</small>
               </span>
               <Toggle
                 checked={preferences.draftPersistence}
@@ -233,8 +235,15 @@ export function SectionSettings({
             <div>
               <span>Preferences</span>
               <strong>window.localStorage</strong>
-              <small>Only the preference key shown on this page is reset.</small>
+              <small>{TESTER_PREFERENCES_STORAGE_KEY} · schema v{TESTER_PREFERENCES_SCHEMA_VERSION}</small>
             </div>
+            <div>
+              <span>Prompt drafts</span>
+              <strong>window.localStorage</strong>
+              <small>{TESTER_PROMPT_DRAFTS_STORAGE_KEY} · schema v{TESTER_PROMPT_DRAFTS_SCHEMA_VERSION}</small>
+            </div>
+          </div>
+          <div className="settings-provenance-grid">
             <div>
               <span>Runs / artifacts</span>
               <strong>app-owned Tauri commands and local history</strong>
@@ -244,7 +253,7 @@ export function SectionSettings({
           <div className="settings-reset-row">
             <div>
               <strong>Reset local preferences</strong>
-              <span>Restores defaults for draft persistence, verbose console, and evidence capture mode. Runs and artifacts are not cleared.</span>
+              <span>Restores defaults for draft persistence, verbose console, and evidence capture mode. Prompt drafts, runs, and artifacts are not cleared.</span>
             </div>
             <Button
               type="button"

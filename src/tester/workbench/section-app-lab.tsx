@@ -49,6 +49,11 @@ import {
   openWorldTourWindow,
   resolveWorldTourFixture,
 } from '../world-tour/world-tour-shared.js';
+import {
+  loadTesterPromptDraft,
+  saveTesterPromptDraft,
+  type TesterPromptDraftStoreStatus,
+} from '../tester-preferences.js';
 
 type SectionAppLabProps = {
   activeId: TesterCapabilityId;
@@ -61,6 +66,7 @@ type SectionAppLabProps = {
   historyError: string | null;
   onOpenKitComponents: () => void;
   verboseConsole: boolean;
+  draftPersistence: boolean;
 };
 
 type ScenarioPreset = {
@@ -429,30 +435,60 @@ function CapabilityLab({
   lastResult,
   onResult,
   verboseConsole,
+  draftPersistence,
 }: {
   capability: TesterCapability;
   runtime: TesterRuntimeInspection | null;
   lastResult: TesterCapabilityRunResult | null;
   onResult: (result: TesterCapabilityRunResult, prompt: string) => void | Promise<void>;
   verboseConsole: boolean;
+  draftPersistence: boolean;
 }) {
   const presets = useMemo(() => presetsFor(capability), [capability]);
   const [scenarioId, setScenarioId] = useState(presets[0].id);
   const [prompt, setPrompt] = useState(presets[0].prompt);
+  const [draftStatus, setDraftStatus] = useState<TesterPromptDraftStoreStatus>(() => (
+    loadTesterPromptDraft({
+      surfaceId: 'app-lab',
+      capabilityId: capability.id,
+      scenarioId: presets[0].id,
+    }, draftPersistence).status
+  ));
   const [running, setRunning] = useState(false);
   const currentResult = lastResult?.capabilityId === capability.id ? lastResult : null;
   const admission = admissionFor(capability, runtime, currentResult);
+  const currentPreset = presets.find((item) => item.id === scenarioId) ?? presets[0];
+
+  function loadPromptFor(nextScenarioId: string, presetPrompt: string) {
+    const draft = loadTesterPromptDraft({
+      surfaceId: 'app-lab',
+      capabilityId: capability.id,
+      scenarioId: nextScenarioId,
+    }, draftPersistence);
+    setDraftStatus(draft.status);
+    setPrompt(draft.prompt ?? presetPrompt);
+  }
+
+  function updatePrompt(nextPrompt: string, nextScenarioId = scenarioId) {
+    setPrompt(nextPrompt);
+    const saved = saveTesterPromptDraft({
+      surfaceId: 'app-lab',
+      capabilityId: capability.id,
+      scenarioId: nextScenarioId,
+    }, nextPrompt, draftPersistence);
+    setDraftStatus(saved.status);
+  }
 
   useEffect(() => {
     setScenarioId(presets[0].id);
-    setPrompt(presets[0].prompt);
-  }, [presets]);
+    loadPromptFor(presets[0].id, presets[0].prompt);
+  }, [capability.id, draftPersistence, presets]);
 
   function selectScenario(nextId: string) {
     const preset = presets.find((item) => item.id === nextId);
     if (!preset) return;
     setScenarioId(nextId);
-    setPrompt(preset.prompt);
+    loadPromptFor(nextId, preset.prompt);
   }
 
   async function run() {
@@ -514,12 +550,13 @@ function CapabilityLab({
           wrap="soft"
           aria-label={`${capability.label} request`}
           value={prompt}
-          onChange={(event) => setPrompt(event.currentTarget.value)}
+          onChange={(event) => updatePrompt(event.currentTarget.value)}
         />
         <div className="app-lab-request-meta" aria-label="Request options">
           <span>single-shot</span>
           <span>max tokens: 1024</span>
           <span>temperature: 0.3</span>
+          <span>drafts: {draftPersistence ? draftStatus.state : 'off'}</span>
         </div>
       </section>
 
@@ -542,7 +579,7 @@ function CapabilityLab({
         >
           {capability.execution === 'standalone-tauri' ? 'Open Viewer' : 'Run with Runtime'}
         </Button>
-        <Button type="button" tone="secondary" leadingIcon={<RefreshCw size={14} />} onClick={() => setPrompt(presets[0].prompt)}>
+        <Button type="button" tone="secondary" leadingIcon={<RefreshCw size={14} />} onClick={() => updatePrompt(currentPreset.prompt)}>
           Refresh
         </Button>
         <IconButton aria-label="Capability settings" tone="ghost" icon={<SlidersHorizontal size={15} />} />
@@ -775,6 +812,7 @@ export function SectionAppLab({
   historyError,
   onOpenKitComponents,
   verboseConsole,
+  draftPersistence,
 }: SectionAppLabProps) {
   const runtime = summary?.runtime ?? null;
   return (
@@ -799,6 +837,7 @@ export function SectionAppLab({
             lastResult={lastResult}
             onResult={onResult}
             verboseConsole={verboseConsole}
+            draftPersistence={draftPersistence}
           />
           <RecipeCompanion onOpen={onOpenKitComponents} />
         </div>

@@ -208,6 +208,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
               historyError={historyError}
               onOpenKitComponents={() => setSection('ui-recipes')}
               verboseConsole={preferenceState.preferences.verboseConsole}
+              draftPersistence={preferenceState.preferences.draftPersistence}
             />
           ) : null}
           {section === 'ai-capabilities' ? (
@@ -222,6 +223,7 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
               historyError={historyError}
               onOpenKitComponents={() => setSection('ui-recipes')}
               verboseConsole={preferenceState.preferences.verboseConsole}
+              draftPersistence={preferenceState.preferences.draftPersistence}
             />
           ) : null}
           {section === 'ui-recipes' ? <KitComponentGallery onOpenSection={setSection} /> : null}

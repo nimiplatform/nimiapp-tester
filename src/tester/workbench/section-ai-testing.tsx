@@ -44,6 +44,11 @@ import {
   openWorldTourWindow,
   resolveWorldTourFixture,
 } from '../world-tour/world-tour-shared.js';
+import {
+  loadTesterPromptDraft,
+  saveTesterPromptDraft,
+  type TesterPromptDraftStoreStatus,
+} from '../tester-preferences.js';
 
 type SectionAITestingProps = {
   activeId: TesterCapabilityId;
@@ -56,6 +61,7 @@ type SectionAITestingProps = {
   historyError: string | null;
   onOpenKitComponents: () => void;
   verboseConsole: boolean;
+  draftPersistence: boolean;
 };
 
 type ScenarioPreset = {
@@ -457,31 +463,60 @@ function CapabilityDetail({
   lastResult,
   onResult,
   verboseConsole,
+  draftPersistence,
 }: {
   capability: TesterCapability;
   runtime: TesterRuntimeInspection | null;
   lastResult: TesterCapabilityRunResult | null;
   onResult: (result: TesterCapabilityRunResult, prompt: string) => void | Promise<void>;
   verboseConsole: boolean;
+  draftPersistence: boolean;
 }) {
   const presets = useMemo(() => presetsFor(capability), [capability]);
   const [scenarioId, setScenarioId] = useState(presets[0].id);
   const [prompt, setPrompt] = useState(presets[0].prompt);
+  const [draftStatus, setDraftStatus] = useState<TesterPromptDraftStoreStatus>(() => (
+    loadTesterPromptDraft({
+      surfaceId: 'ai-capabilities',
+      capabilityId: capability.id,
+      scenarioId: presets[0].id,
+    }, draftPersistence).status
+  ));
   const [running, setRunning] = useState(false);
   const currentResult = lastResult?.capabilityId === capability.id ? lastResult : null;
   const admission = statusForCapability(capability, runtime, currentResult);
   const isWorldTour = capability.execution === 'standalone-tauri';
 
+  function loadPromptFor(nextScenarioId: string, presetPrompt: string) {
+    const draft = loadTesterPromptDraft({
+      surfaceId: 'ai-capabilities',
+      capabilityId: capability.id,
+      scenarioId: nextScenarioId,
+    }, draftPersistence);
+    setDraftStatus(draft.status);
+    setPrompt(draft.prompt ?? presetPrompt);
+  }
+
+  function updatePrompt(nextPrompt: string, nextScenarioId = scenarioId) {
+    setPrompt(nextPrompt);
+    const saved = saveTesterPromptDraft({
+      surfaceId: 'ai-capabilities',
+      capabilityId: capability.id,
+      scenarioId: nextScenarioId,
+    }, nextPrompt, draftPersistence);
+    setDraftStatus(saved.status);
+  }
+
   useEffect(() => {
     setScenarioId(presets[0].id);
-    setPrompt(presets[0].prompt);
-  }, [presets]);
+    loadPromptFor(presets[0].id, presets[0].prompt);
+  }, [capability.id, draftPersistence, presets]);
 
   function selectScenario(nextId: string) {
     const preset = presets.find((item) => item.id === nextId);
     if (!preset) return;
     setScenarioId(nextId);
-    setPrompt(preset.prompt);
+    loadPromptFor(nextId, preset.prompt);
   }
 
   async function run() {
@@ -550,8 +585,9 @@ function CapabilityDetail({
             wrap="soft"
             aria-label={`${capability.label} request`}
             value={prompt}
-            onChange={(event) => setPrompt(event.currentTarget.value)}
+            onChange={(event) => updatePrompt(event.currentTarget.value)}
           />
+          <small>drafts: {draftPersistence ? draftStatus.state : 'off'}</small>
         </section>
 
         <section className="ai-detail-panel ai-detail-panel--run" aria-label="Run">
@@ -577,7 +613,7 @@ function CapabilityDetail({
               leadingIcon={<RefreshCw size={14} />}
               onClick={() => {
                 setScenarioId(presets[0].id);
-                setPrompt(presets[0].prompt);
+                updatePrompt(presets[0].prompt, presets[0].id);
               }}
             >
               Reset request
@@ -757,6 +793,7 @@ export function SectionAITesting({
   lastResult,
   historyError,
   verboseConsole,
+  draftPersistence,
 }: SectionAITestingProps) {
   const runtime = summary?.runtime ?? null;
   const currentResult = lastResult?.capabilityId === capability.id ? lastResult : null;
@@ -787,6 +824,7 @@ export function SectionAITesting({
             lastResult={lastResult}
             onResult={onResult}
             verboseConsole={verboseConsole}
+            draftPersistence={draftPersistence}
           />
         </div>
         <BoundaryEvidencePanel

@@ -1,7 +1,10 @@
 export const TESTER_PREFERENCES_STORAGE_KEY = 'nimiapp-tester:workbench-preferences:v1';
 export const TESTER_PREFERENCES_SCHEMA_VERSION = 1;
+export const TESTER_PROMPT_DRAFTS_STORAGE_KEY = 'nimiapp-tester:prompt-drafts:v1';
+export const TESTER_PROMPT_DRAFTS_SCHEMA_VERSION = 1;
 
 export type TesterEvidenceCaptureMode = 'manual' | 'after-run';
+export type TesterPromptDraftSurfaceId = 'app-lab' | 'ai-capabilities';
 
 export type TesterPreferences = {
   schemaVersion: typeof TESTER_PREFERENCES_SCHEMA_VERSION;
@@ -30,10 +33,58 @@ type PreferenceLoadResult = {
   status: TesterPreferenceStoreStatus;
 };
 
+export type TesterPromptDraftKey = {
+  surfaceId: TesterPromptDraftSurfaceId;
+  capabilityId: string;
+  scenarioId: string;
+};
+
+export type TesterPromptDraftStore = {
+  schemaVersion: typeof TESTER_PROMPT_DRAFTS_SCHEMA_VERSION;
+  drafts: Record<string, string>;
+};
+
+export type TesterPromptDraftStoreState =
+  | 'ready'
+  | 'defaulted'
+  | 'corrupt'
+  | 'unavailable'
+  | 'write-error'
+  | 'disabled';
+
+export type TesterPromptDraftStoreStatus = {
+  state: TesterPromptDraftStoreState;
+  storageKey: typeof TESTER_PROMPT_DRAFTS_STORAGE_KEY;
+  message: string;
+  error?: string;
+};
+
+export type TesterPromptDraftLoadResult = {
+  prompt: string | null;
+  status: TesterPromptDraftStoreStatus;
+};
+
+export type TesterPromptDraftSaveResult = {
+  status: TesterPromptDraftStoreStatus;
+};
+
 function defaultStatus(state: TesterPreferenceStoreState, message: string, error?: string): TesterPreferenceStoreStatus {
   return {
     state,
     storageKey: TESTER_PREFERENCES_STORAGE_KEY,
+    message,
+    error,
+  };
+}
+
+function defaultDraftStatus(
+  state: TesterPromptDraftStoreState,
+  message: string,
+  error?: string,
+): TesterPromptDraftStoreStatus {
+  return {
+    state,
+    storageKey: TESTER_PROMPT_DRAFTS_STORAGE_KEY,
     message,
     error,
   };
@@ -54,6 +105,17 @@ function storageUnavailableResult(error?: string): PreferenceLoadResult {
     status: defaultStatus(
       'unavailable',
       'Local preference storage is unavailable; defaults are active and controls are read-only.',
+      error,
+    ),
+  };
+}
+
+function draftStorageUnavailableResult(error?: string): TesterPromptDraftLoadResult {
+  return {
+    prompt: null,
+    status: defaultDraftStatus(
+      'unavailable',
+      'Prompt draft storage is unavailable; preset prompt is active.',
       error,
     ),
   };
@@ -87,6 +149,55 @@ function parseTesterPreferences(raw: string): TesterPreferences {
     draftPersistence: parsed.draftPersistence,
     verboseConsole: parsed.verboseConsole,
     evidenceCaptureMode: parsed.evidenceCaptureMode,
+  };
+}
+
+function makePromptDraftId(key: TesterPromptDraftKey): string {
+  return `${key.surfaceId}:${key.capabilityId}:${key.scenarioId}`;
+}
+
+function defaultTesterPromptDraftStore(): TesterPromptDraftStore {
+  return {
+    schemaVersion: TESTER_PROMPT_DRAFTS_SCHEMA_VERSION,
+    drafts: {},
+  };
+}
+
+function parseTesterPromptDraftStore(raw: string): TesterPromptDraftStore {
+  const parsed = JSON.parse(raw) as Partial<TesterPromptDraftStore>;
+  if (
+    parsed.schemaVersion !== TESTER_PROMPT_DRAFTS_SCHEMA_VERSION
+    || !parsed.drafts
+    || typeof parsed.drafts !== 'object'
+    || Array.isArray(parsed.drafts)
+  ) {
+    throw new Error('Stored prompt draft schema is invalid.');
+  }
+  for (const [draftId, prompt] of Object.entries(parsed.drafts)) {
+    if (typeof draftId !== 'string' || typeof prompt !== 'string') {
+      throw new Error('Stored prompt draft entry is invalid.');
+    }
+  }
+  return {
+    schemaVersion: TESTER_PROMPT_DRAFTS_SCHEMA_VERSION,
+    drafts: { ...parsed.drafts },
+  };
+}
+
+function loadTesterPromptDraftStore(storage: Storage): {
+  store: TesterPromptDraftStore;
+  status: TesterPromptDraftStoreStatus;
+} {
+  const raw = storage.getItem(TESTER_PROMPT_DRAFTS_STORAGE_KEY);
+  if (!raw) {
+    return {
+      store: defaultTesterPromptDraftStore(),
+      status: defaultDraftStatus('defaulted', 'No saved prompt drafts found; preset prompt is active.'),
+    };
+  }
+  return {
+    store: parseTesterPromptDraftStore(raw),
+    status: defaultDraftStatus('ready', 'Prompt draft store loaded.'),
   };
 }
 
@@ -166,6 +277,78 @@ export function resetTesterPreferences(storage: Storage | null = getLocalPrefere
         'write-error',
         'Preference reset failed; run and artifact evidence was not changed.',
         error instanceof Error ? error.message : String(error || 'Unknown preference reset error.'),
+      ),
+    };
+  }
+}
+
+export function loadTesterPromptDraft(
+  key: TesterPromptDraftKey,
+  enabled: boolean,
+  storage: Storage | null = getLocalPreferenceStorage(),
+): TesterPromptDraftLoadResult {
+  if (!enabled) {
+    return {
+      prompt: null,
+      status: defaultDraftStatus('disabled', 'Prompt draft persistence is disabled; preset prompt is active.'),
+    };
+  }
+  if (!storage) return draftStorageUnavailableResult();
+
+  try {
+    const { store, status } = loadTesterPromptDraftStore(storage);
+    return {
+      prompt: store.drafts[makePromptDraftId(key)] ?? null,
+      status,
+    };
+  } catch (error) {
+    return {
+      prompt: null,
+      status: defaultDraftStatus(
+        'corrupt',
+        'Saved prompt drafts could not be trusted; preset prompt is active.',
+        error instanceof Error ? error.message : String(error || 'Unknown prompt draft load error.'),
+      ),
+    };
+  }
+}
+
+export function saveTesterPromptDraft(
+  key: TesterPromptDraftKey,
+  prompt: string,
+  enabled: boolean,
+  storage: Storage | null = getLocalPreferenceStorage(),
+): TesterPromptDraftSaveResult {
+  if (!enabled) {
+    return {
+      status: defaultDraftStatus('disabled', 'Prompt draft persistence is disabled; edit was not saved.'),
+    };
+  }
+  if (!storage) {
+    return {
+      status: draftStorageUnavailableResult().status,
+    };
+  }
+
+  try {
+    const { store } = loadTesterPromptDraftStore(storage);
+    const next: TesterPromptDraftStore = {
+      schemaVersion: TESTER_PROMPT_DRAFTS_SCHEMA_VERSION,
+      drafts: {
+        ...store.drafts,
+        [makePromptDraftId(key)]: prompt,
+      },
+    };
+    storage.setItem(TESTER_PROMPT_DRAFTS_STORAGE_KEY, JSON.stringify(next));
+    return {
+      status: defaultDraftStatus('ready', 'Prompt draft saved.'),
+    };
+  } catch (error) {
+    return {
+      status: defaultDraftStatus(
+        'write-error',
+        'Prompt draft write failed; edit remains local to this view.',
+        error instanceof Error ? error.message : String(error || 'Unknown prompt draft write error.'),
       ),
     };
   }
