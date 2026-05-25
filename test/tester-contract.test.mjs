@@ -163,6 +163,36 @@ test('tester Artifacts page is a real artifact inventory', () => {
   assert.doesNotMatch(sectionArtifacts, /fake thumbnail/i);
 });
 
+test('tester diagnostics page is a contract and trace inspector', () => {
+  const diagnostics = read('src/tester/workbench/section-diagnostics.tsx');
+  const workbench = read('src/tester/tester-workbench.tsx');
+
+  for (const requiredCopy of [
+    'Contract & trace inspector',
+    'Runtime Trace',
+    'Boundary Checks',
+    'Transport/projection, provider catalog, last trace availability, run/artifact linkage, and storage command provenance.',
+    'Import boundaries, SDK admission, no REST bypass, app-owned storage/viewer commands, and fail-closed rules.',
+    'trace availability',
+    'no trace metadata in persisted records',
+    'tester_run_history_load/save',
+    'tester_image_history_load/save',
+    'World Tour local fixture',
+    'no REST bypass',
+    'storage commands',
+    'SDK Admission Matrix Strip',
+    'tauri-only local fixture, not runtime generation',
+  ]) {
+    assert.match(diagnostics, new RegExp(requiredCopy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+
+  assert.match(workbench, /section=\{section\}/);
+  assert.match(workbench, /history=\{history\}/);
+  assert.match(workbench, /lastResult=\{lastResult\}/);
+  assert.doesNotMatch(diagnostics, /mock.*success/i);
+  assert.doesNotMatch(diagnostics, /pseudo/i);
+});
+
 test('tester run history labels local fixtures distinctly from runtime results', () => {
   const history = read('src/tester/tester-history.ts');
   assert.match(history, /if \(status === 'ready'\) return 'runtime ready'/);

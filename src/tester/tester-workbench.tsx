@@ -199,7 +199,15 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
           {section === 'ui-recipes' ? <KitComponentGallery onOpenSection={setSection} /> : null}
           {section === 'runs' ? <SectionRuns history={history} onOpenSection={setSection} /> : null}
           {section === 'artifacts' ? <SectionArtifacts onOpenSection={setSection} /> : null}
-          {section === 'runtime-trace' || section === 'boundary-checks' ? <SectionDiagnostics summary={summary} /> : null}
+          {section === 'runtime-trace' || section === 'boundary-checks' ? (
+            <SectionDiagnostics
+              summary={summary}
+              section={section}
+              history={history}
+              historyError={historyError}
+              lastResult={lastResult}
+            />
+          ) : null}
           {section === 'settings' ? <SectionSettings /> : null}
         </div>
       </div>
