@@ -1,4 +1,4 @@
-import { CircleDot, Cog, RefreshCw, Save, ShieldCheck } from 'lucide-react';
+import { CircleDot, RefreshCw, Save, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import { Button, IconButton, StatusBadge } from '@nimiplatform/kit/ui';
 import type { TesterRuntimeInspection } from '../tester-runtime.js';
 
@@ -17,8 +17,8 @@ function runtimeTone(runtime: TesterRuntimeInspection | null): 'success' | 'warn
 }
 
 function runtimeLabel(runtime: TesterRuntimeInspection | null): string {
-  if (!runtime) return 'Runtime: checking';
-  return runtime.status === 'ready' ? 'Runtime: ready' : 'Runtime: typed unavailable';
+  if (!runtime) return 'Runtime checking';
+  return runtime.status === 'ready' ? 'Runtime ready' : 'Runtime unavailable';
 }
 
 export function WorkbenchCommandBar({
@@ -36,20 +36,18 @@ export function WorkbenchCommandBar({
           <CircleDot size={14} aria-hidden="true" />
           <span>{appId}</span>
         </div>
-        <span className="workbench-command-bar__divider" aria-hidden="true" />
-        <div className="workbench-command-bar__meta">
-          <span>{scaffoldProfile} scaffold</span>
-          <span>third-party Nimi App workbench</span>
+        <div className="workbench-command-bar__chip workbench-command-bar__chip--profile">
+          <span>{runtime ? runtime.mode : scaffoldProfile}</span>
         </div>
       </div>
       <div className="workbench-command-bar__status">
         <StatusBadge tone={runtimeTone(runtime)} shape="dot">
           {runtimeLabel(runtime)}
         </StatusBadge>
-        <StatusBadge tone="info" shape="outline">
-          {runtime ? runtime.mode : 'mode: pending'}
+        <StatusBadge tone="neutral" shape="outline">
+          <ShieldCheck size={13} aria-hidden="true" />
+          Strict boundary
         </StatusBadge>
-        <StatusBadge tone="neutral">developer-mode</StatusBadge>
       </div>
       <div className="workbench-command-bar__actions">
         <Button
@@ -72,16 +70,10 @@ export function WorkbenchCommandBar({
           Capture evidence
         </Button>
         <IconButton
-          aria-label="Workbench preferences"
+          aria-label="Readiness inspector"
           tone="ghost"
           size="sm"
-          icon={<Cog size={15} />}
-        />
-        <IconButton
-          aria-label="Boundary policy"
-          tone="ghost"
-          size="sm"
-          icon={<ShieldCheck size={15} />}
+          icon={<SlidersHorizontal size={15} />}
         />
       </div>
     </header>

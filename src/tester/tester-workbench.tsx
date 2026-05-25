@@ -8,7 +8,6 @@ import { testerTestIds } from './tester-test-ids.js';
 import { appId, scaffoldProfile } from '../shell/auth/runtime-platform.js';
 import { WorkbenchSideNav } from './workbench/workbench-side-nav.js';
 import { WorkbenchCommandBar } from './workbench/workbench-command-bar.js';
-import { ReadinessBand } from './workbench/readiness-band.js';
 import { SectionAITesting } from './workbench/section-ai-testing.js';
 import { SectionRuns } from './workbench/section-runs.js';
 import { SectionArtifacts } from './workbench/section-artifacts.js';
@@ -29,7 +28,7 @@ function makeRecordId() {
 }
 
 export function TesterWorkbench(_props: TesterWorkbenchProps) {
-  const [section, setSection] = useState<WorkbenchSectionId>('ai-testing');
+  const [section, setSection] = useState<WorkbenchSectionId>('app-lab');
   const [activeCapabilityId, setActiveCapabilityId] = useState<TesterCapabilityId>(initialCapabilityId);
   const [summary, setSummary] = useState<TesterAIConfigSummary | null>(null);
   const [history, setHistory] = useState<TesterRunHistory | null>(null);
@@ -116,8 +115,8 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
 
   const handleSelectCapability = useCallback((id: TesterCapabilityId) => {
     setActiveCapabilityId(id);
-    if (section !== 'ai-testing') {
-      setSection('ai-testing');
+    if (section !== 'app-lab' && section !== 'ai-capabilities') {
+      setSection('app-lab');
     }
   }, [section]);
 
@@ -138,9 +137,8 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
           onRunCheck={handleRunCheck}
           onCaptureEvidence={handleCaptureEvidence}
         />
-        <ReadinessBand summary={summary} evidenceCapture="disabled" />
         <div className="workbench__content">
-          {section === 'ai-testing' ? (
+          {section === 'app-lab' || section === 'ai-capabilities' ? (
             <SectionAITesting
               activeId={activeCapabilityId}
               onSelect={handleSelectCapability}
@@ -150,13 +148,13 @@ export function TesterWorkbench(_props: TesterWorkbenchProps) {
               history={history}
               lastResult={lastResult}
               historyError={historyError}
-              onOpenKitComponents={() => setSection('kit-components')}
+              onOpenKitComponents={() => setSection('ui-recipes')}
             />
           ) : null}
-          {section === 'kit-components' ? <KitComponentGallery /> : null}
+          {section === 'ui-recipes' ? <KitComponentGallery /> : null}
           {section === 'runs' ? <SectionRuns history={history} /> : null}
           {section === 'artifacts' ? <SectionArtifacts /> : null}
-          {section === 'diagnostics' ? <SectionDiagnostics summary={summary} /> : null}
+          {section === 'runtime-trace' || section === 'boundary-checks' ? <SectionDiagnostics summary={summary} /> : null}
           {section === 'settings' ? <SectionSettings /> : null}
         </div>
       </div>

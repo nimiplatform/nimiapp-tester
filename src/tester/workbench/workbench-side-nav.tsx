@@ -1,9 +1,11 @@
 import {
   AppWindow,
+  Beaker,
   Boxes,
+  FileSearch,
   FileBarChart2,
   FlaskConical,
-  Gauge,
+  ShieldCheck,
   PackageOpen,
   Settings,
   type LucideIcon,
@@ -11,11 +13,13 @@ import {
 import { workbenchSections, type WorkbenchSection, type WorkbenchSectionId } from './workbench-context.js';
 
 const sectionIcons: Record<WorkbenchSectionId, LucideIcon> = {
-  'ai-testing': FlaskConical,
-  'kit-components': Boxes,
+  'app-lab': AppWindow,
+  'ai-capabilities': FlaskConical,
+  'ui-recipes': Boxes,
   runs: FileBarChart2,
   artifacts: PackageOpen,
-  diagnostics: Gauge,
+  'runtime-trace': FileSearch,
+  'boundary-checks': ShieldCheck,
   settings: Settings,
 };
 
@@ -48,13 +52,13 @@ function groupSections(items: WorkbenchSection[]) {
 export function WorkbenchSideNav({ activeId, onSelect, appId, appVersion }: WorkbenchSideNavProps) {
   const groups = groupSections(workbenchSections);
   return (
-    <aside className="workbench-side-nav" aria-label="Nimi tester workspace navigation">
+    <aside className="workbench-side-nav" aria-label="Nimi App Lab workspace navigation">
       <div className="workbench-side-nav__brand">
         <span className="workbench-side-nav__brand-mark" aria-hidden="true">
-          <AppWindow size={16} />
+          <Beaker size={16} />
         </span>
         <div>
-          <strong>Nimi Tester</strong>
+          <strong>Nimi App Lab</strong>
           <span>{appId}</span>
         </div>
       </div>

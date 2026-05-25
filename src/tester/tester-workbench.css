@@ -53,7 +53,7 @@ body:has(.workbench) {
 .workbench__main {
   min-width: 0;
   display: grid;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--nimi-tester-shell-overlay) 96%, transparent) 0%, color-mix(in srgb, var(--nimi-tester-shell-overlay) 88%, transparent) 100%);
   border-left: 1px solid var(--nimi-tester-border-soft);
@@ -280,7 +280,7 @@ body:has(.workbench) {
   top: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 14px;
   padding: 10px 22px;
@@ -292,7 +292,7 @@ body:has(.workbench) {
 .workbench-command-bar__identity {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -308,6 +308,12 @@ body:has(.workbench) {
   color: var(--nimi-text-primary);
   font-size: 12px;
   font-weight: 600;
+}
+
+.workbench-command-bar__chip--profile {
+  color: #1454d8;
+  background: color-mix(in srgb, var(--nimi-status-info) 9%, white);
+  border-color: color-mix(in srgb, var(--nimi-status-info) 18%, var(--nimi-tester-border-soft));
 }
 
 .workbench-command-bar__chip svg {

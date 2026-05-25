@@ -23,11 +23,13 @@ function DevPreview() {
   useEffect(() => {
     if (!section) return;
     const map: Record<string, string> = {
-      'ai-testing': 'AI Testing',
-      'kit-components': 'Kit Components',
+      'app-lab': 'App Lab',
+      'ai-capabilities': 'AI Capabilities',
+      'ui-recipes': 'UI Recipes',
       runs: 'Runs',
       artifacts: 'Artifacts',
-      diagnostics: 'Diagnostics',
+      'runtime-trace': 'Runtime Trace',
+      'boundary-checks': 'Boundary Checks',
       settings: 'Settings',
     };
     const label = map[section];
@@ -49,7 +51,7 @@ function DevPreview() {
   return (
     <div className="app-shell" data-testid="nimi-tester-dev-preview-shell">
       <div className="app-shell__body">
-        <TesterWorkbench title="Nimi Tester" />
+        <TesterWorkbench title="Nimi App Lab" />
       </div>
     </div>
   );

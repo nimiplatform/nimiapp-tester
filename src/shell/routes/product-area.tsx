@@ -9,5 +9,5 @@ export function ProductArea() {
   if (isWorldTourViewerRoute()) {
     return <WorldTourViewerRoute />;
   }
-  return <TesterWorkbench title="Nimi Tester" />;
+  return <TesterWorkbench title="Nimi App Lab" />;
 }
