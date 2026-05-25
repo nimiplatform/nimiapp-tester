@@ -45,7 +45,6 @@ import {
   type TesterCapabilityRunResult,
   type TesterRuntimeInspection,
 } from '../tester-runtime.js';
-import type { TesterTypedOutput } from '../tester-runtime-invokers.js';
 import {
   openWorldTourWindow,
   resolveWorldTourFixture,
@@ -194,7 +193,7 @@ const recipeCards: RecipeCard[] = [
   },
   {
     title: 'Evidence action',
-    detail: 'Capture request, result, and trace.',
+    detail: 'Capture available request, result, and trace.',
     primitives: ['ActionMenu', 'Button', 'EvidenceBadge'],
     icon: Clipboard,
   },
@@ -255,12 +254,22 @@ function admissionFor(
     return { ...status, detail: currentResult && !currentResult.ok ? currentResult.message : capability.missingSurface || 'SDK method unavailable for this lane.' };
   }
   if (status.label === 'tauri only') {
-    return { ...status, detail: 'Runs through the admitted app-owned Tauri command path.' };
+    return { ...status, detail: 'Tauri-only fixture: opens viewer, does not produce a runtime result or artifact.' };
   }
   return { ...status, detail: runtime?.detail || 'Waiting for Runtime readiness inspection.' };
 }
 
-function formatTypedOutput(output: TesterTypedOutput): string {
+function formatTypedOutput(result: TesterCapabilityRunResult & { ok: true }): string {
+  const output = result.output;
+  if (result.capabilityId === 'world.generate') {
+    return JSON.stringify({
+      viewerStatus: 'viewer opened',
+      fixture: 'tauri-only fixture',
+      runtimeResult: false,
+      runtimeArtifact: false,
+      windowLabel: output.kind === 'artifacts' ? output.jobId : undefined,
+    }, null, 2);
+  }
   if (output.kind === 'text') return output.text || '(empty body)';
   if (output.kind === 'embedding') {
     return JSON.stringify({
@@ -333,7 +342,9 @@ function CapabilityRail({
                         <Icon size={14} />
                       </span>
                       <span className="app-lab-rail__label">{capability.label}</span>
-                      <StatusBadge tone={status.tone} shape="dot">{status.label}</StatusBadge>
+                      <span className="app-lab-rail__status">
+                        <StatusBadge tone={status.tone} shape="dot">{status.label}</StatusBadge>
+                      </span>
                     </button>
                   </li>
                 );
@@ -349,18 +360,21 @@ function CapabilityRail({
 function ResultPanel({
   result,
   running,
+  capability,
 }: {
   result: TesterCapabilityRunResult | null;
   running: boolean;
+  capability: TesterCapability;
 }) {
+  const isWorldTour = capability.id === 'world.generate';
   if (running) {
     return (
       <div className="app-lab-result app-lab-result--pending">
         <div className="app-lab-result__line">
           <Loader2 size={14} aria-hidden="true" />
-          <span>running against Runtime...</span>
+          <span>{isWorldTour ? 'opening tauri-only viewer...' : 'running against Runtime...'}</span>
         </div>
-        <p>Waiting for the SDK or Tauri command to return.</p>
+        <p>{isWorldTour ? 'Waiting for the app-owned Tauri command to return.' : 'Waiting for the Runtime SDK call to return.'}</p>
       </div>
     );
   }
@@ -369,9 +383,9 @@ function ResultPanel({
       <div className="app-lab-result app-lab-result--idle">
         <div className="app-lab-result__line">
           <CircleDot size={14} aria-hidden="true" />
-          <span>idle - waiting for your first runtime run.</span>
+          <span>{isWorldTour ? 'idle - waiting for viewer open.' : 'idle - waiting for your first runtime run.'}</span>
         </div>
-        <p>Run a capability to see result, console output, and evidence.</p>
+        <p>{isWorldTour ? 'Open the fixture viewer to record a local run; this is not runtime artifact proof.' : 'Run a capability to see result, console output, and evidence.'}</p>
       </div>
     );
   }
@@ -393,7 +407,7 @@ function ResultPanel({
         <CheckCircle2 size={14} aria-hidden="true" />
         <span>{result.message}</span>
       </div>
-      <pre>{formatTypedOutput(result.output)}</pre>
+      <pre>{formatTypedOutput(result)}</pre>
     </div>
   );
 }
@@ -438,13 +452,12 @@ function CapabilityLab({
           ok: true,
           capabilityId: capability.id,
           capabilityLabel: capability.label,
-          message: `Standalone viewer window opened with manifest ${fixture.manifestPath}.`,
+          message: `Viewer opened for a Tauri-only fixture (${fixture.manifestPath}); no runtime generation or artifact was produced.`,
           output: {
             kind: 'artifacts',
             jobId: opened.windowLabel,
             jobState: 'window-opened',
-            artifactCount: 1,
-            firstArtifact: { displayName: fixture.manifestPath, mimeType: 'application/x-nimi-world-manifest' },
+            artifactCount: 0,
           },
         }, prompt);
       } else {
@@ -513,7 +526,7 @@ function CapabilityLab({
           disabled={running || (!prompt.trim() && capability.id !== 'world.generate')}
           onClick={run}
         >
-          {capability.execution === 'standalone-tauri' ? 'Open Tauri Viewer' : 'Run with Runtime'}
+          {capability.execution === 'standalone-tauri' ? 'Open Viewer' : 'Run with Runtime'}
         </Button>
         <Button type="button" tone="secondary" leadingIcon={<RefreshCw size={14} />} onClick={() => setPrompt(presets[0].prompt)}>
           Refresh
@@ -529,7 +542,7 @@ function CapabilityLab({
             <IconButton aria-label="Copy result" size="sm" tone="ghost" icon={<Copy size={14} />} />
           </div>
         </div>
-        <ResultPanel result={currentResult} running={running} />
+        <ResultPanel result={currentResult} running={running} capability={capability} />
       </section>
     </Surface>
   );
@@ -595,7 +608,7 @@ function ReadinessInspector({
   const runtime = summary?.runtime ?? null;
   const sdkGaps = appLabCapabilities.filter((capability) => capability.execution === 'typed-unavailable').length;
   const admitted = appLabCapabilities.filter((capability) => capability.execution === 'runtime-sdk').length;
-  const lastRun = history?.runs[0] ?? null;
+  const lastRun = latestRunRecord(history);
   const rows = [
     {
       title: 'Runtime session',
@@ -617,9 +630,9 @@ function ReadinessInspector({
     },
     {
       title: 'Evidence capture',
-      tone: lastRun ? 'success' : 'neutral',
-      status: lastRun ? 'Manual' : 'Waiting',
-      details: [lastRun ? `Last run: ${lastRun.capabilityId}` : 'No capture yet', lastRun ? lastRun.createdAt : 'Run a capability first.'],
+      tone: lastRun ? 'info' : 'neutral',
+      status: lastRun ? 'Local record' : 'No record',
+      details: [lastRun ? `App-owned run: ${lastRun.capabilityId}` : 'No local run record yet', lastRun ? lastRun.createdAt : 'Run a capability first.'],
     },
     {
       title: 'App boundary',
@@ -656,47 +669,57 @@ function ReadinessInspector({
   );
 }
 
+function latestRunRecord(history: TesterRunHistory | null) {
+  if (!history) return null;
+  return Object.values(history)
+    .flat()
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
+}
+
 function EvidenceTimeline({
   result,
   history,
+  capability,
 }: {
   result: TesterCapabilityRunResult | null;
   history: TesterRunHistory | null;
+  capability: TesterCapability;
 }) {
-  const lastRun = history?.runs[0] ?? null;
-  const artifactCount = result?.ok && result.output.kind === 'artifacts' ? result.output.artifactCount : 0;
+  const localRecord = history?.[capability.id]?.[0] ?? null;
+  const isWorldTour = result?.capabilityId === 'world.generate';
+  const artifactCount = result?.ok && result.output.kind === 'artifacts' && !isWorldTour ? result.output.artifactCount : 0;
   const hasTrace = Boolean(result?.ok && result.trace);
   const traceDetail = result?.ok && result.trace
     ? result.trace.traceId || result.trace.modelResolved || 'Trace metadata'
-    : 'Persist trace';
+    : 'Not captured by this run';
   const items = [
     {
-      title: 'Run',
-      status: lastRun ? 'Recorded' : 'Not started',
-      detail: lastRun ? lastRun.capabilityId : 'Run capability',
-      tone: lastRun ? 'success' : 'neutral',
+      title: 'Local run record',
+      status: localRecord ? 'Recorded' : 'No record',
+      detail: localRecord ? `app-owned history: ${localRecord.capabilityId}` : 'Run capability first',
+      tone: localRecord ? 'info' : 'neutral',
     },
     {
-      title: 'Result',
-      status: result ? (result.ok ? 'Ready' : 'Blocked') : 'Waiting',
-      detail: result ? result.message : 'Generate result',
-      tone: result ? (result.ok ? 'success' : 'warning') : 'neutral',
+      title: 'Runtime result',
+      status: result ? (result.ok ? (isWorldTour ? 'Viewer opened' : 'Returned') : 'Blocked') : 'Waiting',
+      detail: result ? (isWorldTour ? 'Tauri-only fixture; Runtime not invoked' : result.message) : 'No Runtime result yet',
+      tone: result ? (result.ok ? (isWorldTour ? 'info' : 'success') : 'warning') : 'neutral',
     },
     {
       title: 'Artifact',
-      status: artifactCount > 0 ? 'Captured' : 'Waiting',
-      detail: artifactCount > 0 ? `${artifactCount} artifact(s)` : 'Capture artifact',
-      tone: artifactCount > 0 ? 'success' : 'neutral',
+      status: artifactCount > 0 ? 'Captured' : isWorldTour ? 'Not runtime artifact' : 'No artifact yet',
+      detail: artifactCount > 0 ? `${artifactCount} real artifact(s)` : isWorldTour ? 'Viewer fixture only; no artifact captured' : 'No real artifact captured',
+      tone: artifactCount > 0 ? 'success' : isWorldTour ? 'info' : 'neutral',
     },
     {
       title: 'Boundary',
-      status: result ? (result.ok ? 'Enforced' : 'Fail-closed') : 'Waiting',
-      detail: result ? 'Runtime/SDK boundary observed' : 'Enforce boundary',
-      tone: result ? (result.ok ? 'success' : 'warning') : 'neutral',
+      status: result ? (result.ok ? (isWorldTour ? 'Strict active' : 'Observed') : 'Fail-closed') : 'Strict active',
+      detail: result ? (isWorldTour ? 'App-owned Tauri command observed' : 'Runtime/SDK boundary observed') : 'Strict policy active',
+      tone: result ? (result.ok ? 'success' : 'warning') : 'success',
     },
     {
       title: 'Trace',
-      status: hasTrace ? 'Persisted' : 'Waiting',
+      status: hasTrace ? 'Available' : 'Not captured',
       detail: traceDetail,
       tone: hasTrace ? 'success' : 'neutral',
     },
@@ -707,7 +730,7 @@ function EvidenceTimeline({
       <div className="app-lab-timeline__head">
         <div>
           <strong>Evidence timeline</strong>
-          <p>Track the lifecycle of this run and its artifacts.</p>
+          <p>Separates local run records from runtime results, real artifacts, boundary observation, and traces.</p>
         </div>
         <Button type="button" tone="secondary" size="sm" trailingIcon={<ArrowRight size={13} />}>
           View all runs
@@ -766,6 +789,7 @@ export function SectionAppLab({
         <EvidenceTimeline
           result={lastResult?.capabilityId === capability.id ? lastResult : null}
           history={history}
+          capability={capability}
         />
       </div>
       <ReadinessInspector summary={summary} history={history} historyError={historyError} />
