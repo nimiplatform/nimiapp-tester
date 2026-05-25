@@ -57,6 +57,37 @@ test('tester kit gallery covers required component families', () => {
   assert.match(gallery, /Runtime projection blocked/);
 });
 
+test('tester UI Recipes stays scenario-first', () => {
+  const gallery = read('src/tester/kit-component-gallery.tsx');
+  assert.match(gallery, /const surfaceScenarios: SurfaceScenario\[] = \[/);
+  for (const scenario of [
+    'AI request panel',
+    'Runtime result surface',
+    'SDK blocker state',
+    'Evidence action row',
+    'Settings preference',
+    'Artifact gallery',
+    'Runtime trace inspector',
+  ]) {
+    assert.match(gallery, new RegExp(scenario));
+  }
+  for (const requiredCopy of [
+    'Contract & Imports',
+    'Composition steps',
+    'ready',
+    'loading',
+    'blocked',
+    'unavailable',
+    'Open App Lab',
+    'Open AI Capabilities',
+  ]) {
+    assert.match(gallery, new RegExp(requiredCopy.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  }
+  assert.doesNotMatch(gallery, /Pick a family, then a recipe/);
+  assert.match(gallery, /Surface Scenario Rail/);
+  assert.match(gallery, /Recipe Composer \/ Preview/);
+});
+
 test('tester app-owned Tauri commands are registered in standalone shell', () => {
   const main = read('src-tauri/src/main.rs');
   assert.match(main, /tester_run_history_load/);
