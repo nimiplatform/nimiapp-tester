@@ -200,6 +200,8 @@ const recipeCards: RecipeCard[] = [
   },
 ];
 
+const appLabCapabilities = testerCapabilities.filter((capability) => capability.id !== 'speech.bundle');
+
 function presetsFor(capability: TesterCapability): ScenarioPreset[] {
   return scenarioPresets[capability.id] || [
     {
@@ -298,7 +300,7 @@ function CapabilityRail({
   const grouped = groupOrder
     .map((group) => ({
       group,
-      capabilities: testerCapabilities.filter((item) => item.group === group && item.id !== 'speech.bundle'),
+      capabilities: appLabCapabilities.filter((item) => item.group === group),
     }))
     .filter((bucket) => bucket.capabilities.length > 0);
 
@@ -591,8 +593,8 @@ function ReadinessInspector({
   historyError: string | null;
 }) {
   const runtime = summary?.runtime ?? null;
-  const sdkGaps = testerCapabilities.filter((capability) => capability.execution === 'typed-unavailable').length;
-  const admitted = testerCapabilities.filter((capability) => capability.execution === 'runtime-sdk').length;
+  const sdkGaps = appLabCapabilities.filter((capability) => capability.execution === 'typed-unavailable').length;
+  const admitted = appLabCapabilities.filter((capability) => capability.execution === 'runtime-sdk').length;
   const lastRun = history?.runs[0] ?? null;
   const rows = [
     {
@@ -611,7 +613,7 @@ function ReadinessInspector({
       title: 'SDK gaps',
       tone: sdkGaps > 0 ? 'warning' : 'success',
       status: sdkGaps > 0 ? `${sdkGaps} gaps` : 'No typed gaps',
-      details: [`Admitted lanes: ${admitted} / ${testerCapabilities.length}`, historyError ? `History: ${historyError}` : 'Typed unavailable lanes remain fail-closed.'],
+      details: [`Admitted lanes: ${admitted} / ${appLabCapabilities.length}`, historyError ? `History: ${historyError}` : 'Typed unavailable lanes remain fail-closed.'],
     },
     {
       title: 'Evidence capture',
@@ -654,6 +656,77 @@ function ReadinessInspector({
   );
 }
 
+function EvidenceTimeline({
+  result,
+  history,
+}: {
+  result: TesterCapabilityRunResult | null;
+  history: TesterRunHistory | null;
+}) {
+  const lastRun = history?.runs[0] ?? null;
+  const artifactCount = result?.ok && result.output.kind === 'artifacts' ? result.output.artifactCount : 0;
+  const hasTrace = Boolean(result?.ok && result.trace);
+  const traceDetail = result?.ok && result.trace
+    ? result.trace.traceId || result.trace.modelResolved || 'Trace metadata'
+    : 'Persist trace';
+  const items = [
+    {
+      title: 'Run',
+      status: lastRun ? 'Recorded' : 'Not started',
+      detail: lastRun ? lastRun.capabilityId : 'Run capability',
+      tone: lastRun ? 'success' : 'neutral',
+    },
+    {
+      title: 'Result',
+      status: result ? (result.ok ? 'Ready' : 'Blocked') : 'Waiting',
+      detail: result ? result.message : 'Generate result',
+      tone: result ? (result.ok ? 'success' : 'warning') : 'neutral',
+    },
+    {
+      title: 'Artifact',
+      status: artifactCount > 0 ? 'Captured' : 'Waiting',
+      detail: artifactCount > 0 ? `${artifactCount} artifact(s)` : 'Capture artifact',
+      tone: artifactCount > 0 ? 'success' : 'neutral',
+    },
+    {
+      title: 'Boundary',
+      status: result ? (result.ok ? 'Enforced' : 'Fail-closed') : 'Waiting',
+      detail: result ? 'Runtime/SDK boundary observed' : 'Enforce boundary',
+      tone: result ? (result.ok ? 'success' : 'warning') : 'neutral',
+    },
+    {
+      title: 'Trace',
+      status: hasTrace ? 'Persisted' : 'Waiting',
+      detail: traceDetail,
+      tone: hasTrace ? 'success' : 'neutral',
+    },
+  ] as const;
+
+  return (
+    <Surface className="app-lab-timeline" material="glass-thin" tone="panel" elevation="base" aria-label="Evidence timeline">
+      <div className="app-lab-timeline__head">
+        <div>
+          <strong>Evidence timeline</strong>
+          <p>Track the lifecycle of this run and its artifacts.</p>
+        </div>
+        <Button type="button" tone="secondary" size="sm" trailingIcon={<ArrowRight size={13} />}>
+          View all runs
+        </Button>
+      </div>
+      <ol className="app-lab-timeline__rail">
+        {items.map((item) => (
+          <li key={item.title} className={`app-lab-timeline__item app-lab-timeline__item--${item.tone}`}>
+            <span className="app-lab-timeline__node" aria-hidden="true" />
+            <strong>{item.title}</strong>
+            <span>{item.status}</span>
+            <p>{item.detail}</p>
+          </li>
+        ))}
+      </ol>
+    </Surface>
+  );
+}
+
 export function SectionAppLab({
   activeId,
   onSelect,
@@ -690,6 +763,10 @@ export function SectionAppLab({
           />
           <RecipeCompanion onOpen={onOpenKitComponents} />
         </div>
+        <EvidenceTimeline
+          result={lastResult?.capabilityId === capability.id ? lastResult : null}
+          history={history}
+        />
       </div>
       <ReadinessInspector summary={summary} history={history} historyError={historyError} />
     </div>

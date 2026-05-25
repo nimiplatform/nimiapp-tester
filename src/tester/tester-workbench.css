@@ -442,7 +442,7 @@ body:has(.workbench) {
 
 .app-lab-workspace {
   display: grid;
-  grid-template-columns: 238px minmax(420px, 1fr) minmax(270px, 0.72fr);
+  grid-template-columns: 210px minmax(0, 1fr) 220px;
   gap: 10px;
   align-items: stretch;
 }
@@ -523,7 +523,7 @@ body:has(.workbench) {
   width: 100%;
   min-height: 36px;
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) auto;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
   align-items: center;
   gap: 8px;
   padding: 5px 8px;
@@ -547,8 +547,8 @@ body:has(.workbench) {
 }
 
 .app-lab-rail__icon {
-  width: 24px;
-  height: 24px;
+  width: 22px;
+  height: 22px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -577,7 +577,7 @@ body:has(.workbench) {
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
-  padding: 16px 16px 10px;
+  padding: 14px 14px 10px;
   border-bottom: 1px solid var(--nimi-tester-border-soft);
 }
 
@@ -609,7 +609,7 @@ body:has(.workbench) {
 .app-lab-admission,
 .app-lab-action,
 .app-lab-result-shell {
-  padding: 10px 16px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--nimi-tester-border-soft);
 }
 
@@ -749,7 +749,7 @@ body:has(.workbench) {
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr) auto;
   gap: 10px;
-  padding: 12px;
+  padding: 10px;
   align-self: stretch;
 }
 
@@ -789,17 +789,17 @@ body:has(.workbench) {
 
 .app-lab-recipe-card {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 9px;
-  padding: 10px;
+  grid-template-columns: 28px minmax(0, 1fr);
+  gap: 8px;
+  padding: 9px;
   border: 1px solid var(--nimi-tester-border-soft);
   border-radius: 8px;
   background: color-mix(in srgb, white 72%, transparent);
 }
 
 .app-lab-recipe-card__icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -923,6 +923,101 @@ body:has(.workbench) {
   font-size: 11px;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.app-lab-timeline {
+  display: grid;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+}
+
+.app-lab-timeline__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.app-lab-timeline__head strong {
+  font-size: 12.5px;
+}
+
+.app-lab-timeline__head p {
+  margin: 2px 0 0;
+  color: var(--nimi-text-secondary);
+  font-size: 11px;
+}
+
+.app-lab-timeline__rail {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.app-lab-timeline__rail::before {
+  content: "";
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 11px;
+  height: 1px;
+  background: repeating-linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--nimi-border-strong) 55%, transparent) 0 8px,
+    transparent 8px 15px
+  );
+}
+
+.app-lab-timeline__item {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding-top: 30px;
+}
+
+.app-lab-timeline__node {
+  position: absolute;
+  top: 2px;
+  left: 6px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid color-mix(in srgb, var(--nimi-border-strong) 74%, transparent);
+  border-radius: 999px;
+  background: white;
+  box-shadow: 0 0 0 4px color-mix(in srgb, white 82%, transparent);
+}
+
+.app-lab-timeline__item--success .app-lab-timeline__node {
+  border-color: color-mix(in srgb, var(--nimi-status-success) 80%, var(--nimi-tester-accent));
+}
+
+.app-lab-timeline__item--warning .app-lab-timeline__node {
+  border-color: var(--nimi-status-warning);
+}
+
+.app-lab-timeline__item strong {
+  font-size: 12px;
+}
+
+.app-lab-timeline__item span {
+  color: var(--nimi-text-secondary);
+  font-size: 11px;
+}
+
+.app-lab-timeline__item p {
+  margin: 0;
+  color: var(--nimi-text-muted);
+  font-size: 10.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .dual-core-grid {
@@ -2853,6 +2948,13 @@ body:has(.workbench) {
   .app-lab-inspector__cards {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .app-lab-timeline__rail {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 18px;
+  }
+  .app-lab-timeline__rail::before {
+    display: none;
+  }
   .dual-core-grid {
     grid-template-columns: 1fr;
   }
@@ -2866,7 +2968,7 @@ body:has(.workbench) {
 
 @media (max-width: 1180px) {
   .app-lab-workspace {
-    grid-template-columns: 220px minmax(0, 1fr);
+    grid-template-columns: 210px minmax(0, 1fr);
   }
   .app-lab-recipes {
     grid-column: 1 / -1;
@@ -2917,8 +3019,17 @@ body:has(.workbench) {
     padding: 14px;
   }
   .app-lab-workspace,
-  .app-lab-inspector__cards {
+  .app-lab-inspector__cards,
+  .app-lab-timeline__rail {
     grid-template-columns: 1fr;
+  }
+  .app-lab-timeline__item {
+    padding-top: 0;
+    padding-left: 30px;
+  }
+  .app-lab-timeline__node {
+    top: 0;
+    left: 0;
   }
   .app-lab-action {
     grid-template-columns: 1fr auto auto;
